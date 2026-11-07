@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+test('画面から保存・コピー・ネットワークの直接I/Oを呼び出さない',()=>{
+  for(const file of ['app.js','privacy-lab.js']){
+    const app=readFileSync(new URL(`../src/${file}`,import.meta.url),'utf8');
+    for(const pattern of [/\bfetch\s*\(/,/navigator\.clipboard/,/URL\.createObjectURL/,/new Blob\b/,/\.download\s*=/])assert.doesNotMatch(app,pattern);
+    assert.match(app,/createBrowserWorkspace/);
+  }
+});
+test('画面が参照する固定IDが存在し、HTMLのIDに重複がない',()=>{
+  for(const [h,j] of [['index.html','app.js'],['privacy-lab.html','privacy-lab.js']]){
+    const html=readFileSync(new URL(`../src/${h}`,import.meta.url),'utf8'),app=readFileSync(new URL(`../src/${j}`,import.meta.url),'utf8');
+    const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(ids.length,new Set(ids).size);
+    for(const [,id] of app.matchAll(/\$\('([^']+)'\)/g))assert.ok(ids.includes(id),`固定IDがありません: ${id}`);
+  }
+});
