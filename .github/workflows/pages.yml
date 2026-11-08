@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   verify-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
@@ -27,10 +27,21 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
-      - name: Install Lean version manager
+      - name: Install pinned Lean version manager
+        timeout-minutes: 4
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location https://elan.lean-lang.org/elan-init.sh --output "$RUNNER_TEMP/elan-init.sh"
-          sh "$RUNNER_TEMP/elan-init.sh" -y --no-modify-path --default-toolchain none
+          for attempt in 1 2 3; do
+            if timeout 60s gh release download v4.2.4 --repo leanprover/elan --pattern elan-x86_64-unknown-linux-gnu.tar.gz --dir "$RUNNER_TEMP" --clobber; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
+          echo "42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63  $RUNNER_TEMP/elan-x86_64-unknown-linux-gnu.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/elan-x86_64-unknown-linux-gnu.tar.gz" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/elan-init" -y --no-modify-path --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
       - name: Install pinned JavaScript dependencies
         run: npm ci
@@ -46,7 +57,7 @@ jobs:
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: verify-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       pages: write
