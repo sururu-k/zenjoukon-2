@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {encryptDraft,decryptDraft,makeSigningKey,signPackage,verifyPackage,keyFingerprint,canonical} from '../src/crypto.js';
+import { readFile } from 'node:fs/promises';
+import {encryptDraft,decryptDraft,makeSigningKey,signPackage,verifyPackage,keyFingerprint,canonical,DRAFT_FRAME_BYTES} from '../src/crypto.js';
 const pass='sumi-test-passphrase-2026';
 test('暗号化下書きは元の文章を露出せず、復号して復元できる',async()=>{
   const draft={source:'氏名：山田太郎、通学：90分',policy:{age:'decade'}};const a=await encryptDraft(draft,pass),b=await encryptDraft(draft,pass);
@@ -25,4 +26,19 @@ test('文章・加工条件・回答を変更すると署名検証が失敗す�
 test('JSONのプロパティの順序が違っても同じ正規化で検証する',async()=>{
   assert.equal(canonical({b:2,a:[1,'日本語']}),canonical({a:[1,'日本語'],b:2}));
   const e=await signPackage({format:'sumi-share',version:1,text:'日本語'},await makeSigningKey());e.payload={text:e.payload.text,version:1,format:'sumi-share'};assert.equal((await verifyPackage(e)).valid,true);
+});
+test('原文の長さや文字種が違っても、新しい暗号化ファイルは同じ長さになる',async()=>{
+  const inputs=[{source:'a'},{source:'秘密の文章'.repeat(8000)},{payload:{protocol:'sumi-mpc-sum-v1',share:'12345'}}];let size;
+  for(const input of inputs){const encrypted=await encryptDraft(input,pass);assert.equal(encrypted.version,2);assert.equal(atob(encrypted.ciphertext).length,DRAFT_FRAME_BYTES+16);const length=JSON.stringify(encrypted).length;if(size===undefined)size=length;assert.equal(length,size);assert.deepEqual(await decryptDraft(encrypted,pass),input);}
+});
+test('固定長フレームのメタデータ改変・切り詰め・容量超過を拒否する',async()=>{
+  const encrypted=await encryptDraft({source:'秘密'},pass);
+  await assert.rejects(decryptDraft({...encrypted,padding:'none'},pass));
+  await assert.rejects(decryptDraft({...encrypted,version:1},pass));
+  await assert.rejects(decryptDraft({...encrypted,ciphertext:encrypted.ciphertext.slice(4)},pass));
+  await assert.rejects(encryptDraft({source:'x'.repeat(DRAFT_FRAME_BYTES)},pass),/1MiB/);
+});
+test('公開済みの旧v1形式の下書きも読み込める',async()=>{
+  const legacy=JSON.parse(await readFile(new URL('./fixtures/draft-v1.json',import.meta.url),'utf8'));
+  assert.equal(legacy.version,1);assert.deepEqual(await decryptDraft(legacy,pass),{source:'旧形式の架空データ',format:'test-fixture'});
 });

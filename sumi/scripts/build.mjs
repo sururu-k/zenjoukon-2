@@ -1,12 +1,15 @@
 import { mkdir, cp } from 'node:fs/promises';
-import { spawnSync } from 'node:child_process';
 import { build } from 'esbuild';
-const verification=spawnSync(process.execPath,[new URL('./check-formal.mjs',import.meta.url).pathname],{stdio:'inherit'});
-if(verification.status!==0)process.exit(verification.status||1);
+import { checkFormal } from './check-formal.mjs';
+import { checkEgress } from './check-egress.mjs';
+import { writeAssurance } from './write-assurance.mjs';
+const formal=checkFormal();
+const egress=await checkEgress();
 await mkdir(new URL('../dist/', import.meta.url), { recursive: true });
 await cp(new URL('../src/', import.meta.url), new URL('../dist/', import.meta.url), { recursive: true });
 await build({entryPoints:[new URL('../src/privacy-lab.js',import.meta.url).pathname],bundle:true,format:'esm',platform:'browser',target:'es2022',outfile:new URL('../dist/privacy-lab.js',import.meta.url).pathname,external:['module','node:module','node:fs','node:fs/promises','node:url','node:path','node:crypto']});
 await cp(new URL('../node_modules/node-seal/dist/seal_throws.wasm',import.meta.url),new URL('../dist/seal_throws.wasm',import.meta.url));
 await mkdir(new URL('../dist/licenses/',import.meta.url),{recursive:true});
 for(const name of ['node-seal','@noble/curves','@noble/hashes'])await cp(new URL(`../node_modules/${name}/LICENSE`,import.meta.url),new URL(`../dist/licenses/${name.replaceAll('/','-')}.txt`,import.meta.url));
+await writeAssurance(formal,egress);
 console.log('Built Sumi → dist/');

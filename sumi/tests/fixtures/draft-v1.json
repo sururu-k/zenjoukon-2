@@ -1,0 +1,10 @@
+{
+  "format": "sumi-encrypted-draft",
+  "version": 1,
+  "kdf": "PBKDF2-SHA256",
+  "iterations": 310000,
+  "cipher": "AES-256-GCM",
+  "salt": "E/B+g8T/pUJMX+dX1S9hHA==",
+  "iv": "y9bN1CR0QwchP/6e",
+  "ciphertext": "WxHtC4UAmtqRU+j6/uGu1u0HLEmFKVGoou66D5L5rnqUuUxhmL/n+e2R2IqSs53IMr9EaZ8gXWn8ODxFEpUyM6v/ZdcQFTNR5GlAomwc8F8="
+}

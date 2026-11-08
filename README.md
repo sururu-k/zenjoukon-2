@@ -4,6 +4,8 @@
 
 実装、起動方法、認可モデルと証明の範囲は [sumi/README.md](sumi/README.md) に記載しています。
 
+情報流の形式モデル・検証方法・信頼する前提は [保証範囲](sumi/ASSURANCE.md) を参照してください。アプリには、版ごとの検証結果を示す `assurance.html` を含みます。ブラウザやOSを含む実環境全体の漏洩不在を証明したものではありません。
+
 ## GitHub Actions / GitHub Pages
 
 `.github/workflows/pages.yml` は、プルリクエストで自動テストとLeanによる認可判定の検証を実行します。`main` へのpushでは、検証とビルドに成功した `sumi/dist/` をGitHub Pagesへ公開します。手動実行にも対応しています。

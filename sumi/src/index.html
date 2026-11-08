@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Sumiは学校のアンケートをブラウザ内で加工し、共有前に確認するツールです。">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:* https://127.0.0.1:* https://localhost:* https://[::1]:*; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src http://127.0.0.1:* http://localhost:* http://[::1]:* https://127.0.0.1:* https://localhost:* https://[::1]:*; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="theme-color" content="#205b48">
   <title>Sumi — 学校の共有前チェック</title>
   <link rel="icon" href="./mark.svg" type="image/svg+xml">
@@ -21,13 +21,14 @@
       <button class="nav-item active" data-view="check" aria-current="page"><span data-icon="scan"></span>共有前チェック<span class="nav-count" id="nav-count">0</span></button>
       <button class="nav-item" data-view="analysis"><span data-icon="chart"></span>アンケート集計</button>
       <a class="nav-item" href="./privacy-lab.html"><span data-icon="lock"></span>秘匿集計</a>
+      <a class="nav-item" href="./assurance.html"><span data-icon="seal"></span>保証範囲と検証結果</a>
       <button class="nav-item" data-view="history"><span data-icon="history"></span>処理の記録</button>
     </nav>
     <div class="sidebar-bottom">
       <button class="nav-item" data-view="guide"><span data-icon="book"></span>使い方と出典</button>
       <button class="nav-item" id="open-draft"><span data-icon="folder"></span>暗号化した下書きを開く</button>
       <div class="privacy-note"><span class="status-dot"></span><div>原文は、この端末に。<small>入力データの自動保存・<br>外部サーバーへの送信なし</small></div></div>
-      <div class="sidebar-footer"><span class="user-avatar">私</span><div>この端末のワークスペース<small>Sumi · プロトタイプ v0.2</small></div></div>
+      <div class="sidebar-footer"><span class="user-avatar">私</span><div>この端末のワークスペース<small>Sumi · プロトタイプ v0.3</small></div></div>
     </div>
   </aside>
 
@@ -87,7 +88,7 @@
               <div class="card-header"><div class="card-title"><span class="title-icon" data-icon="lock"></span><h3 id="authorization-title">この内容を、ここへ渡してよい？</h3></div><span class="badge" id="classification-label">情報区分が不明</span></div>
               <div class="authorization-body"><label for="destination-select">出力する経路</label><select id="destination-select"><option value="unregistered">保存・配布先を選んでください</option><option value="share-file">配布用ファイルとして保存</option><option value="clipboard">クリップボードへコピー</option><option value="unregistered">未登録のクラウド・共有フォルダ</option></select><p id="destination-description"></p><div class="authorization-status" id="authorization-status" role="status" aria-live="polite"></div><p class="authorization-scope">分類は加工条件に基づく目安です。機密情報の完全な検出や、実際の保存フォルダの権限確認は行いません。原文を含む保存には「下書きを保存」を使えます。</p></div>
             </section>
-            <div class="share-bar"><label class="review-checkbox"><input type="checkbox" id="reviewed"><span><strong>この版の文章・加工条件・出力先を確認しました</strong><small>どれかを変更すると承認は失効します。原文全体や加工の対応表は添付しません。</small></span></label><div class="share-actions"><button class="button secondary" id="export-share" disabled><span data-icon="download"></span>署名付きで保存</button><button class="button primary" id="copy-output" disabled><span data-icon="copy"></span>文章をコピー</button></div></div>
+            <div class="share-bar"><label class="review-checkbox"><input type="checkbox" id="reviewed"><span><strong>この版の文章・加工条件・出力先を確認し、公開を許可します</strong><small>どれかを変更すると承認は失効します。原文全体や加工の対応表は添付しません。</small></span></label><div class="share-actions"><button class="button secondary" id="export-share" disabled><span data-icon="download"></span>署名付きで保存</button><button class="button primary" id="copy-output" disabled><span data-icon="copy"></span>文章をコピー</button></div></div>
           </div>
         </div>
       </section>

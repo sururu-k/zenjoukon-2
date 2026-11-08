@@ -26,4 +26,4 @@ DPでは、ランダム化した回答数から人数を推計します。真の
 
 依存ライブラリはバージョンを固定し、`package-lock.json` を管理しています。基礎演算には [noble-curves](https://github.com/paulmillr/noble-curves)、[noble-hashes](https://github.com/paulmillr/noble-hashes)、[node-seal](https://github.com/s0l0ist/node-seal) / [Microsoft SEAL](https://github.com/microsoft/SEAL) を使用します。ライセンスはビルド結果の `licenses/` に同梱します。
 
-`npm test` で改変したZK証明の拒否、MPCの正常な復元と重複・担当違いの拒否、ランダム化回答の全8条件の確率比、実際のBFV暗号文の加算・復号・違う鍵の拒否を検査します。Leanの6定理は保存・配布の認可モデルを対象とし、これらの暗号プロトコルの安全性を証明したものではありません。
+`npm test` で改変したZK証明の拒否、MPCの正常な復元と重複・担当違いの拒否、ランダム化回答の全8条件の確率比、実際のBFV暗号文の加算・復号・違う鍵の拒否を検査します。Leanの11定理は認可と情報流のモデルを対象とし、これらの暗号プロトコルの安全性を証明したものではありません。

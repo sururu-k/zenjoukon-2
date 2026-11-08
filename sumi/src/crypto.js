@@ -2,7 +2,9 @@
 const encoder=new TextEncoder();
 const MAX_FILE=3_000_000;
 const ITERATIONS=310000;
-function bytes64(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s);}
+export const DRAFT_FRAME_BYTES=1_048_576;
+const PADDING='fixed-1048576';
+function bytes64(bytes){let s='';for(let i=0;i<bytes.length;i+=16384)s+=String.fromCharCode(...bytes.subarray(i,i+16384));return btoa(s);}
 function from64(s,max=MAX_FILE){if(typeof s!=='string'||s.length>Math.ceil(max/3)*4||!/^[A-Za-z0-9+/]*={0,2}$/.test(s))throw new Error('ファイルの形式が不正です。');const bytes=Uint8Array.from(atob(s),c=>c.charCodeAt(0));if(bytes.length>max)throw new Error('ファイルが大きすぎます。');return bytes;}
 export function canonical(value){
   if(value===null||typeof value==='string'||typeof value==='boolean')return JSON.stringify(value);
@@ -15,18 +17,23 @@ export async function hash(value){return [...new Uint8Array(await crypto.subtle.
 async function derive(passphrase,salt){const base=await crypto.subtle.importKey('raw',encoder.encode(passphrase),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt,iterations:ITERATIONS},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
 export async function encryptDraft(state,passphrase){
   if(typeof passphrase!=='string'||[...passphrase].length<12)throw new Error('パスフレーズは12文字以上にしてください。');
-  const serialized=canonical(state);if(serialized.length>MAX_FILE)throw new Error('下書きが大きすぎます。');
+  const serialized=encoder.encode(canonical(state));if(serialized.length>DRAFT_FRAME_BYTES-4)throw new Error('暗号化する内容はUTF-8で1MiB未満にしてください。');
+  // A fixed-size authenticated frame hides the JSON byte length. Zero padding
+  // is inside the randomized ciphertext, and the actual length is encrypted.
+  const frame=new Uint8Array(DRAFT_FRAME_BYTES);new DataView(frame.buffer).setUint32(0,serialized.length);frame.set(serialized,4);
   const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const key=await derive(passphrase,salt);
-  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode('sumi-draft-v1')},key,encoder.encode(serialized));
-  return {format:'sumi-encrypted-draft',version:1,kdf:'PBKDF2-SHA256',iterations:ITERATIONS,cipher:'AES-256-GCM',salt:bytes64(salt),iv:bytes64(iv),ciphertext:bytes64(new Uint8Array(ciphertext))};
+  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode('sumi-draft-v2:'+PADDING)},key,frame);
+  return {format:'sumi-encrypted-draft',version:2,padding:PADDING,kdf:'PBKDF2-SHA256',iterations:ITERATIONS,cipher:'AES-256-GCM',salt:bytes64(salt),iv:bytes64(iv),ciphertext:bytes64(new Uint8Array(ciphertext))};
 }
 export async function decryptDraft(envelope,passphrase){
-  if(!envelope||envelope.format!=='sumi-encrypted-draft'||envelope.version!==1||envelope.kdf!=='PBKDF2-SHA256'||envelope.cipher!=='AES-256-GCM'||envelope.iterations!==ITERATIONS)throw new Error('対応していない下書き形式です。');
+  if(!envelope||envelope.format!=='sumi-encrypted-draft'||![1,2].includes(envelope.version)||envelope.version===2&&envelope.padding!==PADDING||envelope.kdf!=='PBKDF2-SHA256'||envelope.cipher!=='AES-256-GCM'||envelope.iterations!==ITERATIONS)throw new Error('対応していない下書き形式です。');
   const salt=from64(envelope.salt,16),iv=from64(envelope.iv,12),ciphertext=from64(envelope.ciphertext);
   if(salt.length!==16||iv.length!==12||ciphertext.length<16)throw new Error('ファイルの形式が不正です。');
+  if(envelope.version===2&&ciphertext.length!==DRAFT_FRAME_BYTES+16)throw new Error('固定長の暗号化フレームではありません。');
   const key=await derive(passphrase,salt);
-  let plaintext;try{plaintext=await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:encoder.encode('sumi-draft-v1')},key,ciphertext);}catch{throw new Error('パスフレーズが違うか、ファイルが変更されています。');}
+  let plaintext;try{plaintext=await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:encoder.encode(envelope.version===1?'sumi-draft-v1':'sumi-draft-v2:'+PADDING)},key,ciphertext);}catch{throw new Error('パスフレーズが違うか、ファイルが変更されています。');}
+  if(envelope.version===2){const bytes=new Uint8Array(plaintext),length=new DataView(plaintext).getUint32(0);if(length>DRAFT_FRAME_BYTES-4)throw new Error('暗号化フレームの長さが不正です。');plaintext=bytes.subarray(4,4+length);}
   try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(plaintext));}catch{throw new Error('下書きの内容を読み取れません。');}
 }
 export async function makeSigningKey(){return crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);}

@@ -1,6 +1,6 @@
 {
   "name": "sumi-school-privacy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "学校の探究アンケートを端末内で加工し、共有前に確認するツール",
@@ -16,6 +16,7 @@
     "node-seal": "7.0.0"
   },
   "devDependencies": {
+    "acorn": "8.19.0",
     "esbuild": "0.28.2"
   }
 }

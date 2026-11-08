@@ -45,6 +45,10 @@ test('原文を含む下書きは暗号化し、保存中に変更された版�
   const {w,calls}=setup(),draft={source:'秘密の原文'};await w.saveDraft(draft,'long-passphrase-2026');const envelope=calls.downloads[0].data;assert.equal(envelope.format,'sumi-encrypted-draft');assert.deepEqual(await decryptDraft(envelope,'long-passphrase-2026'),draft);assert.ok(!JSON.stringify(envelope).includes('秘密の原文'));
   const pending=w.saveDraft(draft,'long-passphrase-2026');w.clear();await denied(pending,'stale');assert.equal(calls.downloads.length,1);
 });
+test('暗号化していても、ファイル名へ任意の情報を書き出すことは拒否する',async()=>{
+  const {w,calls}=setup();await assert.rejects(w.saveDraft({source:'秘密'},'long-passphrase-2026','sumi-customer-secret.sumi'),/ファイル名/);assert.equal(calls.downloads.length,0);
+  await assert.rejects(w.saveDraft({source:'秘密'},'long-passphrase-2026','sumi-draft-0123-45-67.sumi'),/ファイル名/);
+});
 test('AIへのI/Oも同意・端末内の接続先・現在の版を必要とする',async t=>{
   const {w}=setup();const calls=[];t.mock.method(globalThis,'fetch',async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({models:[]})};});
   const ai=createLocalAITransport(w);

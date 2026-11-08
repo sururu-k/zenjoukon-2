@@ -5,6 +5,9 @@ export const POLICY_ID = 'sumi-egress-v1';
 export const LABELS = Object.freeze(['public','internal','confidential','unknown']);
 export const ACTIONS = Object.freeze(['copy','export','saveEncrypted','infer']);
 export const SINKS = Object.freeze(['clipboard','share-file','encrypted-draft','local-ai','unregistered']);
+export class AuthorizationError extends Error {
+  constructor(decision){super(decision.reason);this.name='AuthorizationError';this.code=decision.code;}
+}
 export const DESTINATIONS = Object.freeze({
   clipboard: Object.freeze({label:'クリップボード',description:'貼り付け先を制御できないため、公開用の確認済み文章だけを許可します。'}),
   'share-file': Object.freeze({label:'配布用ファイル',description:'保存後の閲覧範囲を制御できないため、公開用の確認済み文章だけを許可します。'}),
