@@ -1,9 +1,9 @@
 {
-  "name": "sumi-school-privacy",
-  "version": "0.3.0",
+  "name": "sumi-trust-suite",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
-  "description": "学校の探究アンケートを端末内で加工し、共有前に確認するツール",
+  "description": "作成・共有・証明を共通の認可基盤で支える3つの文書ソフト",
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",

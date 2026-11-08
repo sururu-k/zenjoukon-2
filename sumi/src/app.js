@@ -1,4 +1,5 @@
-import { SAMPLE, MAX_TEXT, PRESETS, LABELS, detect, transform, records, aggregate, parseCSV, validateEndpoint, validatePolicy } from './privacy.js';
+import { MAX_TEXT, PRESETS, LABELS, detect, transform, records, aggregate, parseCSV, validateEndpoint, validatePolicy } from './privacy.js';
+import { DOCUMENT_SAMPLE } from './document-workflow.js';
 import { decryptDraft, verifyPackage } from './crypto.js';
 import { createBrowserWorkspace, createLocalAITransport } from './browser-effects.js';
 import { DESTINATIONS, POLICY_ID } from './authorization.js';
@@ -22,7 +23,7 @@ const $=id=>document.getElementById(id);
 const node=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
 function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const p=document.createElementNS(svg.namespaceURI,'path');p.setAttribute('d',paths[name]||paths.document);svg.append(p);return svg;}
 document.querySelectorAll('[data-icon]').forEach(n=>n.replaceChildren(icon(n.dataset.icon)));
-const state={source:SAMPLE,filename:'通学アンケート · 6件の架空データ',sample:true,preset:'public',policy:{...PRESETS.public},overrides:{},customWords:'',result:null,events:[],revision:0,aiEntities:[],aiSource:'',ai:{endpoint:'',model:'',connected:false},pendingDraft:null};
+const state={source:DOCUMENT_SAMPLE,filename:'活動報告 · 架空のサンプル',sample:true,preset:'public',policy:{...PRESETS.public},overrides:{},customWords:'',result:null,events:[],revision:0,aiEntities:[],aiSource:'',ai:{endpoint:'',model:'',connected:false},pendingDraft:null};
 const guard=createBrowserWorkspace(e=>{
   if(e.kind==='denied')event(`認可層が操作を拒否しました：${e.reason}`);
   if(e.kind==='executed')event(`認可層を通して${e.action==='copy'?'コピー':e.action==='export'?'共有ファイルの保存':'暗号化下書きの保存'}を実行しました（${POLICY_ID}）。`);
@@ -35,11 +36,11 @@ function openDialog(id){$(id).showModal();}
 function closeDialog(id){$(id).close();}
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>closeDialog(b.dataset.close)));
 document.querySelectorAll('dialog').forEach(d=>{d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();}});});
-const titles={check:'共有前チェック',analysis:'アンケート集計',history:'処理の記録',guide:'使い方と出典'};
+const titles={check:'共有前チェック',analysis:'文章の集計',history:'処理の記録',guide:'使い方と出典'};
 function go(view){document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==`view-${view}`);document.querySelectorAll('[data-view]').forEach(b=>{const active=b.dataset.view===view;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});$('page-crumb').textContent=titles[view];if(view==='analysis')renderAnalysis();if(view==='history')renderHistory();window.scrollTo({top:0,behavior:'instant'});}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
-function sourceCounts(){$('source-count').textContent=`${state.source.length.toLocaleString()}文字 · ${records(state.source).length}件の回答`;$('source-filename').textContent=state.filename||'1行を1件の回答として扱います';$('sample-badge').hidden=!state.sample;}
+function sourceCounts(){$('source-count').textContent=`${state.source.length.toLocaleString()}文字 · ${records(state.source).length}行`;$('source-filename').textContent=state.filename||'書類を貼り付けるか、TXT・CSVを読み込んでください';$('sample-badge').hidden=!state.sample;}
 function invalidate(message='原文を変更しました。文章を作り直してください。'){
   state.revision++;guard.clear();requestController?.abort();state.result=null;state.overrides={};state.aiEntities=[];state.aiSource='';$('reviewed').checked=false;renderResult();$('empty-result').querySelector('p').textContent=message;
 }
@@ -63,7 +64,7 @@ function calculate(){
   $('reviewed').checked=false;renderResult();
 }
 async function analyze(){
-  if(!state.source.trim()){toast('アンケートの原文を入力してください。',true);return;}
+  if(!state.source.trim()){toast('書類の原文を入力してください。',true);return;}
   if(state.source.length>MAX_TEXT){toast('原文は50,000文字以内にしてください。',true);return;}
   const revision=++state.revision;
   const button=$('analyze');button.disabled=true;button.children[1].textContent='文章を整えています…';
@@ -83,7 +84,7 @@ async function analyze(){
   }finally{button.disabled=false;button.children[1].textContent='共有用の文章をつくる';}
 }
 $('analyze').addEventListener('click',analyze);
-$('load-sample').addEventListener('click',()=>{state.source=SAMPLE;state.sample=true;state.filename='通学アンケート · 6件の架空データ';state.customWords='';state.overrides={};state.aiEntities=[];state.aiSource='';state.revision++;requestController?.abort();$('source-text').value=SAMPLE;$('custom-words').value='';sourceCounts();calculate();event('架空の通学アンケートを読み込みました。');toast('6件の架空データを読み込みました。');});
+$('load-sample').addEventListener('click',()=>{state.source=DOCUMENT_SAMPLE;state.sample=true;state.filename='活動報告 · 架空のサンプル';state.customWords='';state.overrides={};state.aiEntities=[];state.aiSource='';state.revision++;requestController?.abort();$('source-text').value=DOCUMENT_SAMPLE;$('custom-words').value='';sourceCounts();calculate();event('架空の活動報告を読み込みました。');toast('架空の活動報告を読み込みました。');});
 function renderResult(){
   const r=state.result;$('result-content').hidden=!r;$('empty-result').hidden=!!r;$('nav-count').textContent=r?String(r.edits.length):'0';
   if(!r){$('result-summary').textContent='文章を作成すると、ここで確認できます';$('output-preview').replaceChildren();$('edits-list').replaceChildren();$('analysis-content').replaceChildren();updateShareButtons();return;}
@@ -148,7 +149,7 @@ function renderAnalysis(){
   for(const t of a.transport){const row=node('div','bar-row'),label=node('div','bar-label');label.append(node('span','',t.name),node('span','',`${t.ids.length}件`));const track=node('div','bar-track'),fill=node('div','bar-fill');fill.style.width=`${a.count?t.ids.length/a.count*100:0}%`;track.append(fill);row.append(label,track);body.append(row);}
   body.append(node('p','analysis-caption','「交通手段：電車」などの記載を数えます。少人数の集計は個人特定の手がかりになるため、公開範囲を確認してください。'));transport.append(body);grid.append(transport);
   const themes=node('section','card'),head=node('div','card-header');head.append(node('h2','','回答に出てくる言葉'),node('span','badge','キーワード集計'));themes.append(head);const tb=node('div','card-body');
-  for(const theme of a.themes){const wrapper=node('div'),row=node('div','theme-row'),label=node('div','',theme.word),count=node('span','',`${theme.ids.length}件の回答`),btn=node('button','', '根拠を見る');row.append(label,count,btn);wrapper.append(row);btn.addEventListener('click',()=>{const existing=wrapper.querySelector('.evidence-quote');if(existing){existing.remove();btn.textContent='根拠を見る';return;}const quotes=node('div','evidence-quote',theme.ids.map(id=>`${id}  ${a.rows.find(r=>r.id===id).text}`).join('\n\n'));wrapper.append(quotes);btn.textContent='根拠を閉じる';});tb.append(wrapper);}
+  for(const theme of a.themes){const wrapper=node('div'),row=node('div','theme-row'),label=node('div','',theme.word),count=node('span','',`${theme.ids.length}行`),btn=node('button','', '根拠を見る');row.append(label,count,btn);wrapper.append(row);btn.addEventListener('click',()=>{const existing=wrapper.querySelector('.evidence-quote');if(existing){existing.remove();btn.textContent='根拠を見る';return;}const quotes=node('div','evidence-quote',theme.ids.map(id=>`${id}  ${a.rows.find(r=>r.id===id).text}`).join('\n\n'));wrapper.append(quotes);btn.textContent='根拠を閉じる';});tb.append(wrapper);}
   if(!a.themes.length)tb.append(node('p','analysis-caption','対象キーワード（混雑・乗り換え・待ち時間・雨・登校）の記載はありません。'));
   themes.append(tb);grid.append(themes);out.append(grid);
   const aiCard=node('section','card analysis-ai-card'),aiHead=node('div','card-header'),aiButton=node('button','button secondary small','ローカルAIで要約');aiHead.append(node('h2','','文章の要約を補助する'),aiButton);aiCard.append(aiHead);const aiBody=node('div','card-body');aiBody.append(node('p','field-help','確認済みの加工後の文章を、接続したOllamaへ渡します。生成した要約は未確認のため、共有ファイルには含めません。'));const result=node('div','analysis-ai-result');aiCard.append(aiBody,result);out.append(aiCard);
@@ -179,7 +180,7 @@ async function importText(file){
   const input=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());const text=/\.csv$/i.test(file.name)?parseCSV(input):input.replace(/\r\n?/g,'\n').replace(/^\uFEFF/,'');
   if(text.length>MAX_TEXT)throw new Error('50,000文字以内のファイルを選んでください。');
   if(!text.trim())throw new Error('ファイルに文章がありません。');
-  state.source=text;state.filename=file.name;state.sample=false;$('source-text').value=text;sourceCounts();invalidate('ファイルを読み込みました。共有用の文章を作成してください。');event('アンケートのファイルを読み込みました。');toast('ファイルを読み込みました。');
+  state.source=text;state.filename=file.name;state.sample=false;$('source-text').value=text;sourceCounts();invalidate('ファイルを読み込みました。共有用の文章を作成してください。');event('書類のファイルを読み込みました。');toast('ファイルを読み込みました。');
 }
 $('text-file').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{await importText(f);}catch(err){toast(err.message||'UTF-8形式で保存したファイルを選んでください。',true);}finally{e.target.value='';}});
 const sourceCard=document.querySelector('.source-card');sourceCard.addEventListener('dragover',e=>{e.preventDefault();sourceCard.classList.add('drag-over');});sourceCard.addEventListener('dragleave',e=>{if(!sourceCard.contains(e.relatedTarget))sourceCard.classList.remove('drag-over');});sourceCard.addEventListener('drop',async e=>{e.preventDefault();sourceCard.classList.remove('drag-over');if(e.dataTransfer.files.length!==1){toast('ファイルは1つずつ読み込んでください。',true);return;}try{await importText(e.dataTransfer.files[0]);}catch(err){toast(err.message,true);}});
@@ -202,7 +203,7 @@ function restoreDraft(draft){
   state.revision++;requestController?.abort();state.source=draft.source;state.customWords=draft.customWords;state.policy=policy;state.preset=Object.hasOwn(PRESETS,draft.preset)?draft.preset:'custom';state.sample=false;state.filename='暗号化した下書き';state.aiEntities=[];state.aiSource='';state.overrides=overrides;$('source-text').value=state.source;$('custom-words').value=state.customWords;sourceCounts();syncPolicy();calculate();go('check');
 }
 $('clear-source').addEventListener('click',()=>openDialog('clear-dialog'));
-$('confirm-clear').addEventListener('click',()=>{state.source='';state.customWords='';state.filename='';state.sample=false;state.events=[];state.pendingDraft=null;selectedSource='';$('source-text').value='';$('custom-words').value='';invalidate('新しいアンケートを貼り付けてください。');sourceCounts();renderHistory();verifiedFile=null;$('verify-result').replaceChildren();closeDialog('clear-dialog');toast('入力データと処理記録を消去しました。');});
+$('confirm-clear').addEventListener('click',()=>{state.source='';state.customWords='';state.filename='';state.sample=false;state.events=[];state.pendingDraft=null;selectedSource='';$('source-text').value='';$('custom-words').value='';invalidate('新しい書類を貼り付けてください。');sourceCounts();renderHistory();verifiedFile=null;$('verify-result').replaceChildren();closeDialog('clear-dialog');toast('入力データと処理記録を消去しました。');});
 
 const openSettings=()=>openDialog('settings-dialog');$('connection-button').addEventListener('click',openSettings);$('settings-link').addEventListener('click',openSettings);
 let availableModels=[];
@@ -228,4 +229,4 @@ async function localGenerate({system,prompt,schema}){
   try{const data=await aiTransport.request(endpoint,'/api/generate',{model,system,prompt,format:schema,stream:false,options:{temperature:0,num_predict:1800}},{consented:true,signal:controller.signal,expectedRevision});if(typeof data.response!=='string'||data.response.length>40000)throw new Error('ローカルAIの応答形式を確認してください。');return JSON.parse(data.response);}finally{clearTimeout(timer);if(requestController===controller)requestController=null;}
 }
 
-$('source-text').value=state.source;syncPolicy();sourceCounts();calculate();event('架空の通学アンケートでワークスペースを開きました。');
+$('source-text').value=state.source;syncPolicy();sourceCounts();calculate();event('架空の活動報告でワークスペースを開きました。');

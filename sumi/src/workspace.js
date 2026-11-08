@@ -68,7 +68,7 @@ export function createWorkspace(adapters) {
       return Object.freeze({fingerprint,revision:rev});
     },
     async saveDraft(draft,passphrase,name=`sumi-draft-${new Date().toISOString().slice(0,10)}.sumi`){
-      if(name!==`sumi-draft-${new Date().toISOString().slice(0,10)}.sumi`&&!['sumi-zk-proof.sumi','sumi-mpc-A.sumi','sumi-mpc-B.sumi','sumi-mpc-total-A.sumi','sumi-mpc-total-B.sumi','sumi-mpc-result.sumi','sumi-bfv-input.sumi','sumi-bfv-total.sumi','sumi-dp-release.sumi'].includes(name))throw new Error('保存ファイル名が不正です。');
+      if(name!==`sumi-draft-${new Date().toISOString().slice(0,10)}.sumi`&&!['sumi-writer.sumi','sumi-zk-proof.sumi','sumi-mpc-A.sumi','sumi-mpc-B.sumi','sumi-mpc-total-A.sumi','sumi-mpc-total-B.sumi','sumi-mpc-result.sumi','sumi-bfv-input.sumi','sumi-bfv-total.sumi','sumi-dp-release.sumi'].includes(name))throw new Error('保存ファイル名が不正です。');
       const rev=revision,snapshot=structuredClone(draft);
       const encrypted=await encryptDraft(snapshot,passphrase);
       const request=requestFor('saveEncrypted','encrypted-draft','confidential',{fresh:revision===rev,encrypted:true});

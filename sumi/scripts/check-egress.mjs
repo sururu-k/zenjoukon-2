@@ -8,6 +8,7 @@ const DANGEROUS_MEMBERS=new Set([...DIRECT,'innerHTML','outerHTML','srcdoc','coo
 const NATIVE_MEMBERS=new Set(['clipboard','createObjectURL','revokeObjectURL','href','download']);
 const NETWORK_ATTRIBUTES=new Set(['src','href','srcdoc','action','formaction','ping','data','poster','srcset','http-equiv']);
 const IMPORTS=new Set(['node-seal','@noble/curves/ed25519.js']);
+export const HTML_PROFILES=Object.freeze({'index.html':'static','gate.html':'local-ai','writer.html':'local-ai','proof-studio.html':'local-ai','privacy-lab.html':'wasm','assurance.html':'static'});
 function constant(node){if(node?.type==='Literal')return node.value;if(node?.type==='BinaryExpression'&&node.operator==='+'){const a=constant(node.left),b=constant(node.right);if(typeof a==='string'&&typeof b==='string')return a+b;}return undefined;}
 function member(node){return node?.computed?constant(node.property):node?.property?.name;}
 
@@ -49,6 +50,7 @@ export function inspectSource(source,file){
 async function list(dir,prefix=''){const out=[];for(const item of await readdir(dir,{withFileTypes:true})){const name=prefix+item.name;if(item.isDirectory())out.push(...await list(new URL(item.name+'/',dir),name+'/'));else if(item.name.endsWith('.js'))out.push(name);}return out;}
 export function inspectMarkup(source,file){
   const issues=[],fail=rule=>issues.push({file,rule});
+  const profile=HTML_PROFILES[file];if(!profile)fail('unregistered-page');
   if(/\son\w+\s*=/i.test(source))fail('inline-event-handler');
   for(const tag of source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)){if(tag[2].trim()||!/^\s*(?:type="module"\s+)?src="\.\/[a-zA-Z0-9_/-]+\.js"\s*$/.test(tag[1]))fail('unregistered-script');}
   const csp=source.match(/<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]+)"/i)?.[1];
@@ -56,18 +58,19 @@ export function inspectMarkup(source,file){
   const directives=Object.fromEntries(csp.split(';').map(s=>s.trim().split(/\s+/)).filter(a=>a[0]).map(([key,...value])=>[key,value.join(' ')]));
   const expected={"object-src":"'none'","base-uri":"'self'","form-action":"'none'"};
   for(const [key,value] of Object.entries(expected))if(directives[key]!==value)fail('csp-'+key);
-  const scripts=file==='privacy-lab.html'?"'self' 'wasm-unsafe-eval'":file==='assurance.html'?"'none'":"'self'";
+  const scripts=profile==='wasm'?"'self' 'wasm-unsafe-eval'":profile==='static'?"'none'":"'self'";
   if(directives['script-src']!==scripts)fail('csp-script-src');
-  const connections=file==='index.html'?"http://127.0.0.1:* http://localhost:* http://[::1]:* https://127.0.0.1:* https://localhost:* https://[::1]:*":file==='privacy-lab.html'?"'self'":"'none'";
+  const connections=profile==='local-ai'?"http://127.0.0.1:* http://localhost:* http://[::1]:* https://127.0.0.1:* https://localhost:* https://[::1]:*":profile==='wasm'?"'self'":"'none'";
   if(directives['connect-src']!==connections)fail('csp-connect-src');
   return issues;
 }
 export async function checkEgress(){
   const root=new URL('../src/',import.meta.url),files=await list(root),issues=[],hashes={};
   for(const file of files.sort()){const source=await readFile(new URL(file,root),'utf8');issues.push(...inspectSource(source,file));hashes[file]=createHash('sha256').update(source).digest('hex');}
-  for(const file of ['index.html','privacy-lab.html','assurance.html']){const source=await readFile(new URL(file,root),'utf8');issues.push(...inspectMarkup(source,file));hashes[file]=createHash('sha256').update(source).digest('hex');}
+  for(const file of Object.keys(HTML_PROFILES)){const source=await readFile(new URL(file,root),'utf8');issues.push(...inspectMarkup(source,file));hashes[file]=createHash('sha256').update(source).digest('hex');}
+  for(const file of ['suite.css','styles.css','privacy-lab.css'])hashes[file]=createHash('sha256').update(await readFile(new URL(file,root))).digest('hex');
   if(issues.length)throw new Error('出力経路の構文検査に失敗しました：'+JSON.stringify(issues));
-  console.log(`出力経路の構文検査: ${files.length} JS + 3 HTML。未登録の既知I/Oなし。`);
+  console.log(`出力経路の構文検査: ${files.length} JS + ${Object.keys(HTML_PROFILES).length} HTML。未登録の既知I/Oなし。`);
   return {kind:'first-party-ast-guardrails',soundInformationFlowAnalysis:false,files:hashes,exceptions:[{file:'browser-effects.js',purpose:'clipboard, download, authorized loopback fetch'},{file:'secure/fhe.js',purpose:'same-origin static WASM loader via node-seal'}]};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)await checkEgress();

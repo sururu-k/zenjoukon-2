@@ -2,11 +2,11 @@ export const MAX_CONTRIBUTIONS=1000;
 export const MAX_MINUTES=180;
 export const utf8=value=>new TextEncoder().encode(value);
 export function minutes(values){
-  if(!Array.isArray(values)||!values.length||values.length>MAX_CONTRIBUTIONS||values.some(v=>!Number.isInteger(v)||v<0||v>MAX_MINUTES))throw new Error('通学時間は0〜180分の整数で、1〜1,000件を入力してください。');
+  if(!Array.isArray(values)||!values.length||values.length>MAX_CONTRIBUTIONS||values.some(v=>!Number.isInteger(v)||v<0||v>MAX_MINUTES))throw new Error('数値は0〜180の整数で、1〜1,000件を入力してください。');
   return [...values];
 }
 export function parseMinutes(text){
-  if(typeof text!=='string'||text.length>10000||!/^\s*\d+(?:[\s,、]+\d+)*\s*$/.test(text))throw new Error('通学時間だけを、改行かカンマで区切って入力してください。');
+  if(typeof text!=='string'||text.length>10000||!/^\s*\d+(?:[\s,、]+\d+)*\s*$/.test(text))throw new Error('数値だけを、改行かカンマで区切って入力してください。');
   return minutes(text.trim().split(/[\s,、]+/).map(Number));
 }
 export function randomBelow(modulus){
