@@ -1,0 +1,7 @@
+{
+  "mfa": true,
+  "least_privilege": false,
+  "encrypted_backup": null,
+  "locked_storage": null,
+  "screen_privacy": null
+}
