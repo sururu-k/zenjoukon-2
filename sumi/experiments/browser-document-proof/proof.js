@@ -1,6 +1,7 @@
 import { Noir } from '@noir-lang/noir_js';
 import { Barretenberg, BackendType, UltraHonkBackend } from '@aztec-foundation/bb.js';
 import { blake2s } from '@noble/hashes/blake2.js';
+import { isWellFormedUnicode } from '../../src/school-policy-contract.js';
 
 const encoder = new TextEncoder();
 const hex = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
@@ -9,7 +10,7 @@ const fail = message => { throw new Error(message); };
 const patternBytes = terms => {
   if (!Array.isArray(terms) || terms.length < 1 || terms.length > 4) fail('禁止語は１〜４語を指定してください。');
   return terms.map(term => {
-    if (typeof term !== 'string') fail('禁止語は文字列で指定してください。');
+    if (typeof term !== 'string' || !isWellFormedUnicode(term)) fail('禁止語に不正な文字が含まれています。');
     const bytes = encoder.encode(term);
     if (!bytes.length || bytes.length > 16) fail('禁止語はそれぞれ１〜16バイトで指定してください。');
     return bytes;
@@ -29,7 +30,7 @@ function base64ToBytes(value) {
 }
 export function verifyOpening(text, opening, expected) {
   publicInputs(expected);
-  if (typeof text !== 'string' || !opening || opening.version !== 'sumi-document-opening-v1' || !Number.isInteger(opening.documentLength) || typeof opening.salt !== 'string' || !/^[a-f0-9]{64}$/.test(opening.salt)) fail('開封情報の形式が正しくありません。');
+  if (typeof text !== 'string' || !isWellFormedUnicode(text) || !opening || opening.version !== 'sumi-document-opening-v1' || !Number.isInteger(opening.documentLength) || typeof opening.salt !== 'string' || !/^[a-f0-9]{64}$/.test(opening.salt)) fail('文書または開封情報の形式が正しくありません。');
   const document = encoder.encode(text);
   if (document.length !== opening.documentLength || document.length !== expected.documentLength || document.length > 512) return false;
   const preimage = new Uint8Array(544); preimage.set(document);
@@ -43,7 +44,7 @@ export async function createEngine(circuit) {
   const options = { verifierTarget: 'noir-recursive' };
   return {
     async prove(text, forbidden) {
-      if (typeof text !== 'string') fail('文書は文字列で指定してください。');
+      if (typeof text !== 'string' || !isWellFormedUnicode(text)) fail('文書に不正な文字が含まれています。');
       const document = encoder.encode(text), terms = patternBytes(forbidden);
       if (document.length > 512) fail('文書は512バイト以内にしてください。');
       const padded = new Uint8Array(512); padded.set(document);

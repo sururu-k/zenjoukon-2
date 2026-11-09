@@ -32,6 +32,10 @@ try {
   await page.locator('#policy-file').setInputFiles({name:'policy.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(customPolicy))});
   await page.waitForFunction(() => document.querySelector('#policy-status').textContent.includes('読み込みました'));
   assert.equal(await page.locator('#terms').inputValue(),'未公開');
+  const invalidUnicode=structuredClone(customPolicy); invalidUnicode.documentProof.forbidden=['\ud800'];
+  await page.locator('#policy-file').setInputFiles({name:'invalid-unicode.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(invalidUnicode))});
+  await page.waitForFunction(() => document.querySelector('#policy-status').classList.contains('error'));
+  assert.equal(await page.locator('#terms').inputValue(),'未公開');
   await page.locator('#terms').fill('別の語');
   assert.equal(await page.locator('#policy-status').innerText(),'');
   await page.locator('#policy-file').setInputFiles({name:'policy.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(customPolicy))});
