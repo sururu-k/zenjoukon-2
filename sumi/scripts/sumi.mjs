@@ -8,6 +8,7 @@ import { requestFor } from '../src/authorization.js';
 import { dispatchEgress } from '../src/information-flow.js';
 import { proveCommittedSum, verifyCommittedSum } from '../src/secure/zk.js';
 import { verifyPackage } from '../src/crypto.js';
+import { describeSumDisclosure } from '../src/proof-disclosure.js';
 
 const usage = '使い方: node scripts/sumi.mjs write <入力.json> <共有ファイル> | gate <入力.txt> <共有ファイル> | prove <数値.json> <証明.json> | verify <証明.json> | verify-share <共有ファイル> [期待する鍵指紋]';
 const [command, input, output, ...extra] = process.argv.slice(2);
@@ -48,7 +49,7 @@ async function main() {
     if (!data || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.values) || typeof data.context !== 'string') throw new Error('数値入力は context と values を含むJSONにしてください。');
     const proof = proveCommittedSum(data.values, data.context);
     if (!verifyCommittedSum(proof)) throw new Error('生成した証明の検証に失敗しました。');
-    stdout.write(`証明の用途: ${proof.context}\n開示: 件数 ${proof.count}、合計 ${proof.sum}、コミットメントと証明\n保存先: ${output}\n入力の真実性や情報漏洩の不在は証明しません。\n`);
+    stdout.write(`${describeSumDisclosure(data.values, proof.context)}\n保存先: ${output}\n入力の真実性や情報漏洩の不在は証明しません。\n`);
     if (!await confirm()) throw new Error('保存を取り消しました。');
     const request = requestFor('export', 'share-file', 'public', { fresh: true, reviewed: true });
     await dispatchEgress(request, { released: proof }, { 'share-file': value => save(output, value) });
