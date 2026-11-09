@@ -8,7 +8,8 @@ import {execFileSync} from 'node:child_process';
 // A real browser recording of the publicly hosted proof workflow with
 // fictional data. Overlay captions are added solely for the recording.
 const tmp=await mkdtemp(join(tmpdir(),'sumi-document-record-'));
-const target=fileURLToPath(new URL('../submission/文書の証明_公開版ファイル操作デモ.mp4',import.meta.url));
+const target=fileURLToPath(new URL('../submission/文書の証明_学校別設定デモ.mp4',import.meta.url));
+const policyPath=fileURLToPath(new URL('../src/school-policy.example.json',import.meta.url));
 let browser;
 try{
   browser=await chromium.launch({headless:true,...(process.env.SUMI_CHROMIUM?{executablePath:process.env.SUMI_CHROMIUM}:{})});
@@ -21,6 +22,11 @@ try{
   },text);
   await page.goto('https://sururu-k.github.io/zenjoukon-2/document-proof/');
   await caption('公開サイトで、架空の文書と禁止語を使って試します。');await page.waitForTimeout(4000);
+  await page.locator('#policy-file').scrollIntoViewIfNeeded();
+  await caption('学校別の共通設定を選び、禁止語を読み込みます。');await page.waitForTimeout(2500);
+  await page.locator('#policy-file').setInputFiles(policyPath);
+  await page.getByText('禁止語を読み込みました。内容と発行元を確認してください。').waitFor({timeout:30000});
+  await caption('設定の内容と発行元は別途確認します。');await page.waitForTimeout(3000);
   await page.locator('#prove').scrollIntoViewIfNeeded();await caption('文書と禁止語を入力し、ブラウザ内で証明を作成します。');
   await page.locator('#prove').click();await page.locator('#create-result').waitFor({state:'visible',timeout:120000});
   await page.locator('#statement').scrollIntoViewIfNeeded();await caption('公開条件を確認。文書の長さ・禁止語・コミットメントが公開されます。');await page.waitForTimeout(6000);
