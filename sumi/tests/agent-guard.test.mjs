@@ -17,6 +17,12 @@ test('追加の非公開語句が上限を超える場合は黙って無視せ�
   assert.throws(()=>prepareAgentDocument('架空の文書','x'.repeat(101)));
   assert.ok(!prepareAgentDocument('内部限定の計画','内部限定').preview.includes('内部限定'));
 });
+test('重なって出現する指定語を含む文書は、加工された範囲だけをエージェントに渡す',async()=>{
+  const doc=prepareAgentDocument('前 ababa 後','aba');
+  doc.gateway.approveDocument(doc.gateway.revision);
+  const result=await doc.gateway.agent.execute({action:'read',resource:'approved-document',revision:doc.gateway.revision});
+  assert.equal(result.status,'completed');assert.equal(result.value,'前 [非公開] 後');
+});
 test('差し替えた文書も加工し、前の確認を失効する',async()=>{
   const doc=prepareAgentDocument('最初の連絡','内部限定');const gateway=doc.gateway;
   gateway.approveDocument(gateway.revision);
