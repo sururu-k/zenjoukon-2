@@ -1,7 +1,7 @@
 # Sumi 応募資料
 
-- [応募用紙を読む（PDF）](Sumi_応募用紙_第５回_学校別設定.pdf)
-- [応募用紙を編集する（PowerPoint）](Sumi_応募用紙_第５回_学校別設定.pptx)
+- [応募用紙（PowerPoint）](Sumi_応募用紙_第５回_ZKの必要性.pptx)：ZKが必要な理由と、作成者・確認者・監査者ごとに解決できることを中心にした版。
+- 過去の版：[archive/](archive/)
 - [実画面のデモ動画（約75秒）](文書の証明_学校別設定デモ.mp4)
 - [ブラウザでデモを試す](https://sururu-k.github.io/zenjoukon-2/document-proof/)
 - [審査向けデモ手順](審査向けデモ手順.md)
