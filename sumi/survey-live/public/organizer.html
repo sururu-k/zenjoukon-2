@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src http://127.0.0.1:4191 http://127.0.0.1:4192; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>集める人 — 見えないアンケート</title><link rel="stylesheet" href="./live.css"><script type="module" src="./organizer.js"></script></head>
+<body><header><b>Sumi</b><nav><a href="./vote.html">回答する</a><a href="./organizer.html" aria-current="page">集める人</a></nav></header>
+<main>
+<div class="card">
+<h1>集める人の画面</h1>
+<p class="lead">昼休みに、図書室を開けてほしい？</p>
+<p class="note">架空の回答専用。AとBは同じプロセスで動き、この画面から両方のシェアを取得できます。実回答には使えません。</p>
+<p class="count" id="count">回答 0件</p>
+<p class="lead">3件以上で集計できます。</p>
+<button class="btn" id="publish" disabled>集計する</button>
+<section id="results" hidden>
+<div class="row"><span>開けてほしい</span><strong id="yesN"></strong></div><div class="track"><div class="fill" id="yesBar"></div></div>
+<div class="row"><span>今のままでよい</span><strong id="noN"></strong></div><div class="track"><div class="fill alt" id="noBar"></div></div>
+</section>
+<p class="status" id="status" aria-live="polite"></p>
+</div>
+<div class="card">
+<h2>誰がどう答えたか、見られる？</h2>
+<p class="lead">AとBが保管している数字を確認します。このデモでは両方を表示します。</p>
+<button class="btn sub" id="peek">個別の回答を見る</button>
+<div class="pair"><div class="vault"><h3>担当Aの保管庫</h3><span id="heldA">（まだ開いていません）</span></div><div class="vault"><h3>担当Bの保管庫</h3><span id="heldB">（まだ開いていません）</span></div></div>
+<p class="note" id="peekNote" hidden>それぞれ片方だけでは回答を特定できません。この画面では両方を取得できるので、組み合わせれば復元できます。</p>
+<div class="actions" style="margin-top:20px"><button class="btn sub" id="collude">もし担当AとBが結託したら？</button></div>
+<p class="revealed" id="collusion" hidden></p>
+<p class="note">この仕組みが守るのは「AとBが結託しない」場合までです。結託すれば、各回答の中身（誰が答えたかは含まない）は復元できます。実際に使うときは、AとBを別の人・別の端末に置く必要があります。</p>
+</div>
+</main></body></html>

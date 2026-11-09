@@ -8,6 +8,8 @@
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "demo": "node scripts/automatic-demo.mjs",
+    "survey:live": "node survey-live/server.mjs",
+    "survey:record": "node scripts/record-survey-reviewed.mjs",
     "evaluate:masking": "node scripts/evaluate-masking.mjs",
     "test": "node --test tests/*.test.mjs",
     "verify:formal": "node scripts/check-formal.mjs"
@@ -19,6 +21,7 @@
   },
   "devDependencies": {
     "acorn": "8.19.0",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "playwright": "1.65.0"
   }
 }

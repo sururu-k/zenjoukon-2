@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src http://127.0.0.1:4191 http://127.0.0.1:4192; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>回答する — 見えないアンケート</title><link rel="stylesheet" href="./live.css"><script type="module" src="./vote.js"></script></head>
+<body><header><b>Sumi</b><nav><a href="./vote.html" aria-current="page">回答する</a><a href="./organizer.html">集める人</a></nav></header>
+<main>
+<div class="card">
+<h1>昼休みに、図書室を開けてほしい？</h1>
+<p class="lead">答えを2つに分け、担当AとBに送ります。このデモは架空の回答専用です。両方のシェアを集められるため、実際の回答を秘密にする保証はありません。</p>
+<div class="choices"><button class="choice yes" id="yes">開けてほしい</button><button class="choice no" id="no">今のままでよい</button></div>
+<p class="status" id="status" aria-live="polite"></p>
+<div class="pair"><div class="vault"><h3>担当Aに送った数字</h3><span id="shareA">（まだ送っていません）</span></div><div class="vault"><h3>担当Bに送った数字</h3><span id="shareB">（まだ送っていません）</span></div></div>
+<p class="note">正しく作られたシェアは片方だけでは回答を特定できません。両方を合わせれば回答が分かります。改ざんされた回答の検証は未実装です。</p>
+</div>
+</main></body></html>
