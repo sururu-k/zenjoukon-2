@@ -14,7 +14,8 @@ function freeze(value) {
 }
 // TextEncoder replaces isolated UTF-16 surrogates with U+FFFD. Reject them so
 // a policy term cannot mean different byte strings to different consumers.
-function isWellFormedUnicode(value) {
+export function isWellFormedUnicode(value) {
+  if (typeof value !== 'string') return false;
   for (let i = 0; i < value.length; i++) {
     const code = value.charCodeAt(i);
     if (code >= 0xd800 && code <= 0xdbff) {

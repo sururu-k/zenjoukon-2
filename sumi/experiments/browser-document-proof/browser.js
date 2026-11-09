@@ -34,6 +34,11 @@ window.runExperiment = async () => {
     try { await engine.verify(proof, {...expected, documentLength: expected.documentLength + 1}); } catch { tamperedRejected = true; }
     let badWitnessRejected = false;
     try { await engine.prove(terms[0] + text, terms); } catch { badWitnessRejected = true; }
-    return {valid, openingValid, wrongOpeningRejected, proofTamperRejected, forgedStatementsRejected, nulAliasRejected, tamperedRejected, badWitnessRejected, crossOriginIsolated: self.crossOriginIsolated};
+    let malformedDocumentRejected = false, malformedTermRejected = false, malformedExpectedRejected = false, malformedOpeningRejected = false;
+    try { await engine.prove('\ud800',terms); } catch { malformedDocumentRejected = true; }
+    try { await engine.prove(text,['\udc00']); } catch { malformedTermRejected = true; }
+    try { await engine.verify(proof,{...expected,forbidden:['\ud800']}); } catch { malformedExpectedRejected = true; }
+    try { verifyOpening('\ud800',opening,expected); } catch { malformedOpeningRejected = true; }
+    return {valid, openingValid, wrongOpeningRejected, proofTamperRejected, forgedStatementsRejected, nulAliasRejected, tamperedRejected, badWitnessRejected, malformedDocumentRejected, malformedTermRejected, malformedExpectedRejected, malformedOpeningRejected, crossOriginIsolated: self.crossOriginIsolated};
   } finally { await engine.destroy(); }
 };
