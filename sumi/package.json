@@ -10,6 +10,7 @@
     "demo": "node scripts/automatic-demo.mjs",
     "survey:live": "node survey-live/server.mjs",
     "survey:record": "node scripts/record-survey-reviewed.mjs",
+    "document:live": "node document-live/server.mjs",
     "evaluate:masking": "node scripts/evaluate-masking.mjs",
     "test": "node --test tests/*.test.mjs",
     "verify:formal": "node scripts/check-formal.mjs"

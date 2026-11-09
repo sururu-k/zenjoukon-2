@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文書の条件を証明する — Sumi</title><link rel="stylesheet" href="/suite.css"><link rel="stylesheet" href="/styles.css"><script type="module" src="/app.js"></script></head>
+<body><header class="site-header"><a class="brand" href="/">Sumi<span>.</span></a><nav aria-label="ページ内"><a href="#create">証明を作る</a><a href="#verify">証明を確かめる</a></nav></header>
+<main class="document-main"><header class="intro"><p class="eyebrow">文書と条件</p><h1>渡す前に、条件を証明する。</h1><p>指定した言葉が文書に含まれないことを、文書を見せずに検証する実験です。</p></header>
+<div class="notice"><strong>架空データでの実験です</strong><p>文書はこの端末の証明処理に渡します。禁止語と文書のバイト数は公開されます。外部監査を受けていないため、実際の個人情報には使わないでください。</p></div>
+<section id="create" class="section"><div class="section-title"><span>01</span><div><h2>証明を作る</h2><p>例文を編集し、公開してよい禁止語を指定します。</p></div></div>
+<div class="work-grid"><div><label for="document">文書 <small>UTF-8で512バイト以内</small></label><textarea id="document" rows="6" maxlength="512">文化祭のお知らせ。来月、体育館で開催します。</textarea><p id="byte-count" class="hint" aria-live="polite"></p>
+<label for="terms">禁止語 <small>１行に１語、４語まで。各16バイト以内</small></label><textarea id="terms" rows="4">山田
+佐藤
+電話番号</textarea><p class="hint">完全一致だけを検査します。表記ゆれや画像中の文字は対象外です。</p>
+<button class="button" id="prove" type="button">証明を作成する</button><p id="create-status" class="feedback" role="status" aria-live="polite"></p></div>
+<div class="result-pane"><h3>作成結果</h3><p id="create-empty" class="hint">証明ができると、公開される条件と保存ボタンが表示されます。</p><div id="create-result" hidden>
+<p class="hint">検証者には、期待する条件を信頼できる別の経路でも確認してもらってください。</p><label for="statement">公開条件</label><textarea id="statement" rows="7" readonly></textarea>
+<div class="actions"><button class="button secondary" id="save-proof" type="button">証明を保存</button><button class="button secondary" id="save-opening" type="button">開封情報を保存</button></div><p class="private-note">開封情報は非公開です。証明とは別に管理してください。</p></div></div></div></section>
+<section id="verify" class="section"><div class="section-title"><span>02</span><div><h2>証明を確かめる</h2><p>受け取った証明と、別経路で確認した期待条件を入力します。</p></div></div>
+<div class="work-grid"><div><label for="proof-input">受け取った証明JSON</label><textarea id="proof-input" rows="7" placeholder="証明ファイルの内容を貼り付ける"></textarea></div><div><label for="expected-input">期待する条件JSON</label><textarea id="expected-input" rows="7" placeholder='{"documentLength": ..., "forbidden": [...], "commitment": "..."}'></textarea><p class="hint">証明内の条件を確認せずに使うと、別の文書や禁止語の証明を見分けられません。</p></div></div>
+<button class="button" id="verify-button" type="button">証明を検証する</button><p id="verify-status" class="feedback" role="status" aria-live="polite"></p></section>
+<footer>検証鍵はこの端末の回路から生成します。回路・ツールの真正性は別途確認が必要です。PDFや表記ゆれは対象外です。</footer></main></body></html>
