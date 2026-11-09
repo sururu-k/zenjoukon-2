@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SAMPLE,PRESETS,detect,transform,aggregate,parseCSV,validateAIEntities,validateEndpoint,validatePolicy,records,buildSharePayload} from '../src/privacy.js';
+import {SAMPLE,PRESETS,detect,transform,aggregate,parseCSV,validateAIEntities,validateEndpoint,validatePolicy,records,buildSharePayload,deduplicateEntities} from '../src/privacy.js';
 const process=(source,policy=PRESETS.public,extras=[],ai=[])=>transform(source,detect(source,policy,extras,ai),policy);
 
 test('サンプルの氏名・都市・クラスを加工し、研究に必要な通学時間と自由記述を残す',()=>{
@@ -29,6 +29,15 @@ test('一つの候補を原文のまま残すと明示的に計上する',()=>{
 test('同じ氏名は同じ回答者ラベルを使い、追加指定語を優先する',()=>{
   const source='氏名：山田太郎、さくら祭担当\n氏名：山田太郎、年齢：16歳';const r=process(source,PRESETS.public,['さくら祭担当']);
   assert.equal(r.text.match(/回答者A/g).length,2);assert.ok(!r.text.includes('さくら祭担当'));
+});
+test('追加指定語と他の検出範囲が重なる場合、重なった範囲全体を隠す',()=>{
+  const source='連絡先：alice@example.test、担当者：山田太郎';
+  for(const word of ['alice','example','example.test','山田']){
+    const result=process(source,PRESETS.public,[word]).text;
+    assert.ok(!result.includes('alice'));assert.ok(!result.includes('example.test'));assert.ok(!result.includes('山田太郎'));assert.ok(!result.includes('太郎'),result);
+  }
+  const text='abcdefghi';const spans=[{kind:'CUSTOM',value:'abc',start:0,end:3},{kind:'PERSON',value:'cdef',start:2,end:6},{kind:'EMAIL',value:'fghi',start:5,end:9}];
+  const merged=deduplicateEntities(spans,text);assert.equal(merged.length,1);assert.equal(merged[0].value,text);assert.equal(merged[0].kind,'CUSTOM');
 });
 test('連絡先、全角年齢、ラベル付き国際化メールを加工する',()=>{
   const r=process('メール：やまだ@example.jp、連絡先：090-1234-5678、年齢：１６歳、通学：９０分');

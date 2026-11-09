@@ -37,10 +37,25 @@ export function records(text) {
 
 export function deduplicateEntities(candidates, text) {
   const accepted = [];
-  const sorted = candidates.filter(e => safeKinds.has(e.kind) && Number.isInteger(e.start) && Number.isInteger(e.end) && e.start >= 0 && e.end <= text.length && e.end > e.start && e.value === text.slice(e.start,e.end))
-    .sort((a,b) => priority[b.kind]-priority[a.kind] || (b.end-b.start)-(a.end-a.start) || a.start-b.start);
-  for (const e of sorted) {
-    if (!accepted.some(a => a.start < e.end && e.start < a.end)) accepted.push({ ...e, id: `${e.start}:${e.end}:${e.kind}` });
+  const sorted=candidates.filter(e => safeKinds.has(e.kind) && Number.isInteger(e.start) && Number.isInteger(e.end) && e.start >= 0 && e.end <= text.length && e.end > e.start && e.value === text.slice(e.start,e.end))
+    .sort((a,b)=>a.start-b.start||b.end-a.end);
+  // Overlapping candidates form connected spans. If a user-specified secret
+  // intersects another candidate, mask the union rather than leaving a suffix
+  // or prefix of the automatically detected value visible.
+  for(let i=0;i<sorted.length;){
+    let j=i+1,end=sorted[i].end;
+    while(j<sorted.length&&sorted[j].start<end){end=Math.max(end,sorted[j].end);j++;}
+    const group=sorted.slice(i,j);
+    if(group.some(e=>e.kind==='CUSTOM')){
+      const start=group[0].start;
+      accepted.push({kind:'CUSTOM',value:text.slice(start,end),start,end,source:'manual',id:`${start}:${end}:CUSTOM`});
+    }else{
+      const chosen=[];
+      group.sort((a,b)=>priority[b.kind]-priority[a.kind]||(b.end-b.start)-(a.end-a.start)||a.start-b.start);
+      for(const e of group)if(!chosen.some(a=>a.start<e.end&&e.start<a.end))chosen.push({...e,id:`${e.start}:${e.end}:${e.kind}`});
+      accepted.push(...chosen);
+    }
+    i=j;
   }
   return accepted.sort((a,b) => a.start-b.start);
 }
