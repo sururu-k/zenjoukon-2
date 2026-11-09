@@ -1,4 +1,5 @@
 import { canonical, hash } from './crypto.js';
+import { canExecuteAgent } from './agent-access.js';
 
 // A closed lookup table for proposals. Decisions are independent of any LLM.
 export const AGENT_POLICY='sumi-agent-guard-v1';
@@ -47,10 +48,11 @@ export function createAgentGateway(initialDocument){
       const receipt=await createDecisionReceipt(request);
       // The event contains metadata only; it is not a signed or durable log.
       const result=(status,reason,value)=>({status,reason,...(status==='completed'?{value}:{}),receipt,event:Object.freeze({actor:'agent',action,resource,requestedRevision,currentRevision:revision,policyDecision:decision.decision,status,reason})});
-      if(requestedRevision!==revision)return result('denied','文書が変更されました。');
-      if(decision.decision!=='allow')return result('denied',decision.reason);
-      if(approvedRevision!==revision)return result('denied','この版の文書はまだ確認されていません。');
-      if(resource!=='approved-document')return result('denied','対象を確認できません。');
+      const conditions={fresh:requestedRevision===revision,approved:approvedRevision===revision,allowed:decision.decision==='allow',target:resource==='approved-document',supported:action==='read'||action==='summarize'};
+      if(!canExecuteAgent(conditions)){
+        const reason=!conditions.fresh?'文書が変更されました。':!conditions.allowed?decision.reason:!conditions.approved?'この版の文書はまだ確認されていません。':!conditions.target?'対象を確認できません。':'未実装の操作です。';
+        return result('denied',reason);
+      }
       if(action==='read')return result('completed','確認済みの文書を読み取りました。',documentText);
       if(action==='summarize')return result('completed','確認済みの文書から先頭３文を抽出しました。',documentText.split(/(?<=[。！？])|\n/u).map(s=>s.trim()).filter(Boolean).slice(0,3).join('\n'));
       return result('denied','未実装の操作です。');

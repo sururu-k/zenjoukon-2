@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { evaluateAgentAction, createDecisionReceipt, verifyDecisionReceipt, createAgentGateway } from '../src/agent-guard.js';
+import { canExecuteAgent } from '../src/agent-access.js';
+
+test('エージェントの実行条件は未指定や真偽値以外を許可しない',()=>{
+  const all={fresh:true,approved:true,allowed:true,target:true,supported:true};
+  assert.equal(canExecuteAgent(all),true);assert.equal(canExecuteAgent(null),false);
+  for(const key of Object.keys(all))for(const value of [false,undefined,'true',1])assert.equal(canExecuteAgent({...all,[key]:value}),false);
+});
 
 test('登録された役割・操作・対象だけを許可し、未登録と外部送信は拒否する',()=>{
   assert.equal(evaluateAgentAction({actor:'agent',action:'summarize',resource:'approved-document'}).decision,'allow');
