@@ -2,6 +2,8 @@
 
 Node.js と、このリポジトリの依存パッケージが必要です。`sumi` ディレクトリで次を実行します。初回は `npm ci` で依存パッケージを準備します。
 
+審査向けの自動デモは `npm run demo` で動きます。架空の学校行事を題材に、３製品の動作とエージェントへのアクセス制御を順に実行します。確認操作は自動デモ用に模擬し、ファイル保存や外部送信はしません。署名と証明は実際に計算・検証します。
+
 ```sh
 node scripts/sumi.mjs write examples/write.json /tmp/sumi-write.json
 node scripts/sumi.mjs gate examples/gate.txt /tmp/sumi-gate.json
