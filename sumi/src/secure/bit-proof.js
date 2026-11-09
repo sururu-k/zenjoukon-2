@@ -17,8 +17,15 @@ const contextOK=c=>typeof c==='string'&&c.trim().length>0&&c.length<=200;
 const challenge=(context,commitment,R0,R1)=>ristretto255_hasher.hashToScalar(utf8(canonical({protocol:'sumi-bit-or-v1',context,commitment,R0,R1})));
 
 export function proveCommittedBit(bit,context){
+  return proveCommittedBitWithBlinding(bit,context,randomBelow(q));
+}
+
+// The caller can bind the proof to commitments it constructed separately.
+// Never publish the blinding value with the public proof.
+export function proveCommittedBitWithBlinding(bit,context,r){
   if((bit!==0&&bit!==1)||!contextOK(context))throw new Error('回答は0または1、用途は200文字以内で指定してください。');
-  const r=randomBelow(q),C=mul(G,BigInt(bit)).add(mul(H,r)),Y=[C,C.subtract(G)];
+  if(typeof r!=='bigint'||r<0n||r>=q)throw new Error('不正なブラインド値です。');
+  const C=mul(G,BigInt(bit)).add(mul(H,r)),Y=[C,C.subtract(G)];
   const fake=1-bit,e=[0n,0n],z=[0n,0n],R=[Point.ZERO,Point.ZERO];
   e[fake]=randomBelow(q);z[fake]=randomBelow(q);
   R[fake]=mul(H,z[fake]).subtract(mul(Y[fake],e[fake]));
