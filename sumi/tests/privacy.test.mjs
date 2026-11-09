@@ -39,6 +39,12 @@ test('追加指定語と他の検出範囲が重なる場合、重なった範�
   const text='abcdefghi';const spans=[{kind:'CUSTOM',value:'abc',start:0,end:3},{kind:'PERSON',value:'cdef',start:2,end:6},{kind:'EMAIL',value:'fghi',start:5,end:9}];
   const merged=deduplicateEntities(spans,text);assert.equal(merged.length,1);assert.equal(merged[0].value,text);assert.equal(merged[0].kind,'CUSTOM');
 });
+test('指定語が自分自身と重なって出現した場合も、重なり全体を隠す',()=>{
+  const source='前 ababa 後';
+  const result=process(source,PRESETS.public,['aba']);
+  assert.equal(result.text,'前 [非公開] 後');
+  assert.equal(result.edits.length,1);
+});
 test('連絡先、全角年齢、ラベル付き国際化メールを加工する',()=>{
   const r=process('メール：やまだ@example.jp、連絡先：090-1234-5678、年齢：１６歳、通学：９０分');
   assert.ok(!r.text.includes('やまだ@example.jp'));assert.ok(!r.text.includes('090-1234-5678'));assert.match(r.text,/10代/);assert.match(r.text,/通学：９０分/);

@@ -95,7 +95,9 @@ export function detect(text, policy, extras = [], ai = []) {
   for (const word of extras.slice(0,100).map(v=>String(v).trim()).filter(Boolean)) {
     if (word.length>100) continue;
     let offset=0,index;
-    while ((index=text.indexOf(word,offset))!==-1) { add('CUSTOM',word,index,'manual'); offset=index+word.length; }
+    // A repeated secret can overlap itself (e.g. "aba" in "ababa").
+    // Advance one UTF-16 code unit so the union of all occurrences is masked.
+    while ((index=text.indexOf(word,offset))!==-1) { add('CUSTOM',word,index,'manual'); offset=index+1; }
   }
   found.push(...validateAIEntities(text,ai));
   return deduplicateEntities(found,text);
