@@ -1,0 +1,85 @@
+{
+  "format": "sumi-school-policy-example",
+  "version": 1,
+  "school": "架空の学校",
+  "disclosurePresets": {
+    "teacher": {
+      "label": "校内・教員",
+      "location": "city",
+      "age": "exact",
+      "school": "type",
+      "grade": "grade",
+      "role": "general",
+      "club": "general",
+      "keepCommute": true
+    },
+    "students": {
+      "label": "生徒と共有",
+      "location": "prefecture",
+      "age": "decade",
+      "school": "type",
+      "grade": "grade",
+      "role": "hide",
+      "club": "general",
+      "keepCommute": true
+    },
+    "public": {
+      "label": "校外に発表",
+      "location": "region",
+      "age": "decade",
+      "school": "hide",
+      "grade": "hide",
+      "role": "hide",
+      "club": "hide",
+      "keepCommute": true
+    }
+  },
+  "documentProof": {
+    "forbidden": [
+      "山田",
+      "佐藤",
+      "電話番号"
+    ]
+  },
+  "assessment": {
+    "format": "sumi-school-policy",
+    "version": 1,
+    "controls": [
+      {
+        "id": "mfa",
+        "area": "digital",
+        "title": "管理者の多要素認証",
+        "purpose": "パスワードが漏れても、管理者への不正ログインを難しくする",
+        "required": true
+      },
+      {
+        "id": "least_privilege",
+        "area": "digital",
+        "title": "担当者ごとのアクセス制限",
+        "purpose": "担当外の生徒・教職員情報を閲覧できる範囲を減らす",
+        "required": true
+      },
+      {
+        "id": "encrypted_backup",
+        "area": "digital",
+        "title": "暗号化したバックアップ",
+        "purpose": "紛失や障害に備え、バックアップ自体の閲覧も制限する",
+        "required": true
+      },
+      {
+        "id": "locked_storage",
+        "area": "physical",
+        "title": "紙の書類と端末の施錠保管",
+        "purpose": "置き忘れや無断持ち出しを防ぐ",
+        "required": true
+      },
+      {
+        "id": "screen_privacy",
+        "area": "physical",
+        "title": "画面ののぞき見防止",
+        "purpose": "本人以外への意図しない表示を減らす",
+        "required": true
+      }
+    ]
+  }
+}

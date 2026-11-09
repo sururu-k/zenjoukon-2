@@ -12,13 +12,16 @@ let server, browser;
 try {
   const built = spawnSync(process.execPath, [join(here, 'build.mjs'), temp], {cwd:here, encoding:'utf8', timeout:120000});
   if (built.status !== 0) throw new Error(`Build failed: ${built.stderr || built.error}`);
-  const files = new Set(['index.html','app.js','worker.js','suite.css','styles.css','circuit.json','acvm_js_bg.wasm','noirc_abi_wasm_bg.wasm']);
+  const files = new Set(['index.html','app.js','school-policy.example.json','worker.js','suite.css','styles.css','circuit.json','acvm_js_bg.wasm','noirc_abi_wasm_bg.wasm']);
   server = createServer(async (req,res) => { const name = req.url === '/' ? 'index.html' : req.url.slice(1); if (!files.has(name)) return res.writeHead(404).end(); try { const data = await readFile(join(temp,name)); res.setHeader('Content-Type',name.endsWith('.wasm') ? 'application/wasm' : name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : name.endsWith('.json') ? 'application/json' : 'text/html'); res.end(data); } catch { res.writeHead(500).end(); } });
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
   browser = await chromium.launch({headless:true,...(process.env.SUMI_CHROMIUM ? {executablePath:process.env.SUMI_CHROMIUM} : {})});
   const page = await browser.newPage(); const errors = []; page.on('pageerror', e => errors.push(e.message));
   const url = `http://127.0.0.1:${server.address().port}/`;
-  await page.goto(url); await page.locator('#prove').click();
+  await page.goto(url);
+  const policy = JSON.parse(await readFile(join(here, '../../src/school-policy.example.json'), 'utf8'));
+  assert.equal(await page.locator('#terms').inputValue(), policy.documentProof.forbidden.join('\n'));
+  await page.locator('#prove').click();
   await page.waitForFunction(() => document.querySelector('#create-result').hidden === false || document.querySelector('#create-status').classList.contains('error'),null,{timeout:180000});
   assert.equal(await page.locator('#create-status').innerText(),'証明を作成しました。公開条件を確認してください。');
   const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#save-proof').click()]);

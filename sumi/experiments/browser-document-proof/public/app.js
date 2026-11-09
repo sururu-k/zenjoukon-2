@@ -1,3 +1,4 @@
+import schoolPolicy from './school-policy.example.json' with { type: 'json' };
 const $ = id => document.getElementById(id);
 const worker = new Worker('./worker.js', {type:'module'});
 let job = 0, pending = null, currentProof = null, currentOpening = null, verifiedExpected = null;
@@ -8,6 +9,7 @@ function run(action, data) { if (pending) return Promise.reject(new Error('別�
 function refreshBytes() { $('byte-count').textContent = `${new TextEncoder().encode($('document').value).length} / 512 バイト`; }
 function invalidate() { currentProof = currentOpening = null; $('create-result').hidden = true; $('create-empty').hidden = false; status('create-status', ''); }
 for (const id of ['document', 'terms']) $(id).addEventListener('input', () => { invalidate(); refreshBytes(); });
+$('terms').value = schoolPolicy.documentProof.forbidden.join('\n');
 refreshBytes();
 function download(name, value) { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2) + '\n'], {type:'application/json'})); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 function busy(value) { for (const id of ['prove','verify-button','document','terms','proof-input','expected-input','opening-document','opening-input','proof-file','expected-file','opening-file']) $(id).disabled = value; $('opening-button').disabled = value || !verifiedExpected; }

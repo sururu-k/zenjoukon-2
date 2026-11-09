@@ -10,3 +10,16 @@ test('不正な入力と未知の項目を拒否し、設定案を自動適用�
   assert.throws(()=>assessSchoolPolicy(SCHOOL_POLICY,{mfa:'true'}));assert.throws(()=>assessSchoolPolicy(SCHOOL_POLICY,{unknown:true}));assert.throws(()=>assessSchoolPolicy({...SCHOOL_POLICY,controls:[SCHOOL_POLICY.controls[0],SCHOOL_POLICY.controls[0]]},{}));
   const draft=generateConfigurationDraft(SCHOOL_POLICY);assert.equal(draft.applied,false);assert.equal(draft.settings.length,3);assert.equal(draft.physicalChecklist.length,2);assert.ok(draft.physicalChecklist.every(item=>!item.checked));
 });
+
+import schoolPolicy from '../src/school-policy.example.json' with { type: 'json' };
+import { PRESETS, validatePolicy } from '../src/privacy.js';
+
+test('同じ学校向け設定から共有プリセットと文書証明の初期禁止語を得る', () => {
+  assert.equal(schoolPolicy.format, 'sumi-school-policy-example');
+  assert.equal(schoolPolicy.version, 1);
+  assert.deepEqual(PRESETS, schoolPolicy.disclosurePresets);
+  assert.deepEqual(SCHOOL_POLICY, schoolPolicy.assessment);
+  for (const preset of Object.values(PRESETS)) assert.deepEqual(validatePolicy(preset), preset);
+  assert.ok(schoolPolicy.documentProof.forbidden.length >= 1 && schoolPolicy.documentProof.forbidden.length <= 4);
+  for (const word of schoolPolicy.documentProof.forbidden) assert.ok(typeof word === 'string' && Buffer.byteLength(word) > 0 && Buffer.byteLength(word) <= 16);
+});
