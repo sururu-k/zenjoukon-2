@@ -5,6 +5,18 @@ import { verifyPackage } from '../src/crypto.js';
 import { proveCommittedSum, verifyCommittedSum } from '../src/secure/zk.js';
 import { prepareAgentDocument } from '../src/agent-document.js';
 import { createSurveyDemo } from '../src/survey-demo-core.js';
+import { createInterface } from 'node:readline/promises';
+
+const args = process.argv.slice(2);
+if (args.some(arg => arg !== '--pause')) {
+  console.error('使い方: npm run demo -- [--pause]');
+  process.exit(2);
+}
+const pause = args.includes('--pause');
+const sceneInput = pause ? createInterface({ input: process.stdin, output: process.stdout }) : null;
+async function nextScene() {
+  if (sceneInput) await sceneInput.question('Enter キーで次の場面へ進みます。');
+}
 
 // All inputs are fictional. Effects are captured in memory; no files or network
 // are used. Approval here is simulated solely to demonstrate the workflow.
@@ -19,6 +31,7 @@ survey.submit(true);const surveyResult=await survey.publish();
 assert.deepEqual(surveyResult,{count:3,yes:2,no:1});
 console.log(`回答３件：開けてほしい ${surveyResult.yes}件 / 今のままでよい ${surveyResult.no}件`);
 console.log('この模擬では２つのシェアを同じ端末に保持します。実際の利用者からの回答には使えません。\n');
+await nextScene();
 
 console.log('【Write】教員が行事の連絡を作成');
 const input={title:'作品発表会のお知らせ',kind:'notice',facts:'来月、校内で作品発表会を開催します。',privateMemo:'内部メモ：準備担当の調整は未確定'};
@@ -26,6 +39,7 @@ const draft=composeDocument(input);
 assert.ok(!draft.includes(input.privateMemo));
 console.log('本文案：'+draft.replaceAll('\n',' / '));
 console.log('内部メモは本文生成に含まれません。\n');
+await nextScene();
 
 console.log('【Gate】既存の連絡文を共有用に加工');
 const prepared=prepareDocument('作品発表会は来月です。連絡先：teacher@example.test');
@@ -40,6 +54,7 @@ console.log('確認を模擬した後：署名付き共有データをメモリ�
 workspace.setDocument(prepareDocument('変更された連絡文。').result,prepared.policy);
 await assert.rejects(workspace.export());
 console.log('確認後の文書変更：再確認まで書き出しを拒否\n');
+await nextScene();
 
 console.log('【Prove】個別の人数を証明ファイルに含めず、合計を検証');
 const proof=proveCommittedSum([12,18,9,21],'各班の参加人数');
@@ -48,6 +63,7 @@ assert.equal(verifyCommittedSum(proof),true);assert.equal(verifyCommittedSum({..
 console.log(`公開内容：${proof.count}件、合計 ${proof.sum}、用途、コミットメント、証明`);
 console.log('元の合計：検証成功 / 合計を61に変更：検証失敗');
 console.log('※件数・合計などから個別値が推測される場合があります。\n');
+await nextScene();
 
 console.log('【Agent】確認した版だけを取り出す');
 const agentDocument=prepareAgentDocument('作品発表会は来月です。連絡先：teacher@example.test');
@@ -66,3 +82,4 @@ gateway.replaceDocument('日程を変更しました。');
 assert.equal((await gateway.agent.execute({...proposal,revision:gateway.revision})).status,'denied');
 console.log('文書変更後の要約：再確認まで拒否');
 console.log('\nこのデモはアプリ内の限定した操作を示します。実環境全体の安全や情報漏洩の不在は証明しません。');
+sceneInput?.close();
