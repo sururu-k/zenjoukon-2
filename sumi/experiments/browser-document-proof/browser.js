@@ -19,10 +19,21 @@ window.runExperiment = async () => {
     alteredBytes[alteredBytes.length - 1] ^= 1;
     let alteredBinary = ''; for (const byte of alteredBytes) alteredBinary += String.fromCharCode(byte);
     try { proofTamperRejected = !await engine.verify({...proof, proof: btoa(alteredBinary)}, expected); } catch { proofTamperRejected = true; }
+    const mutations = [
+      {...expected, documentLength: expected.documentLength + 1},
+      {...expected, forbidden: ['鈴木', ...expected.forbidden.slice(1)]},
+      {...expected, commitment: (expected.commitment[0] === '0' ? '1' : '0') + expected.commitment.slice(1)},
+    ];
+    let forgedStatementsRejected = true;
+    for (const statement of mutations) {
+      try { if (await engine.verify({...proof, statement}, statement)) forgedStatementsRejected = false; }
+      catch { /* A rejected verification is also a rejection. */ }
+    }
+    const nulAliasRejected = !verifyOpening(text + '\u0000', {...opening, documentLength: opening.documentLength + 1}, expected);
     let tamperedRejected = false;
     try { await engine.verify(proof, {...expected, documentLength: expected.documentLength + 1}); } catch { tamperedRejected = true; }
     let badWitnessRejected = false;
     try { await engine.prove(terms[0] + text, terms); } catch { badWitnessRejected = true; }
-    return {valid, openingValid, wrongOpeningRejected, proofTamperRejected, tamperedRejected, badWitnessRejected, crossOriginIsolated: self.crossOriginIsolated};
+    return {valid, openingValid, wrongOpeningRejected, proofTamperRejected, forgedStatementsRejected, nulAliasRejected, tamperedRejected, badWitnessRejected, crossOriginIsolated: self.crossOriginIsolated};
   } finally { await engine.destroy(); }
 };
