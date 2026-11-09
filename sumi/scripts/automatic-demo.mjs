@@ -4,12 +4,21 @@ import { createWorkspace } from '../src/workspace.js';
 import { verifyPackage } from '../src/crypto.js';
 import { proveCommittedSum, verifyCommittedSum } from '../src/secure/zk.js';
 import { prepareAgentDocument } from '../src/agent-document.js';
+import { createSurveyDemo } from '../src/survey-demo-core.js';
 
 // All inputs are fictional. Effects are captured in memory; no files or network
 // are used. Approval here is simulated solely to demonstrate the workflow.
 const saved=[];
 const workspace=createWorkspace({download:async(name,data)=>saved.push({name,data})});
 console.log('Sumi 自動デモ（架空データ・承認は模擬・外部送信なし）\n');
+
+console.log('【見えないアンケート】図書室を昼休みに開けてほしい？');
+const survey=createSurveyDemo();survey.submit(true);survey.submit(false);
+await assert.rejects(survey.publish());console.log('回答２件：集計を表示しない');
+survey.submit(true);const surveyResult=await survey.publish();
+assert.deepEqual(surveyResult,{count:3,yes:2,no:1});
+console.log(`回答３件：開けてほしい ${surveyResult.yes}件 / 今のままでよい ${surveyResult.no}件`);
+console.log('この模擬では２つのシェアを同じ端末に保持します。実際の利用者からの回答には使えません。\n');
 
 console.log('【Write】教員が行事の連絡を作成');
 const input={title:'作品発表会のお知らせ',kind:'notice',facts:'来月、校内で作品発表会を開催します。',privateMemo:'内部メモ：準備担当の調整は未確定'};

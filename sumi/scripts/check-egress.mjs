@@ -8,7 +8,7 @@ const DANGEROUS_MEMBERS=new Set([...DIRECT,'innerHTML','outerHTML','srcdoc','coo
 const NATIVE_MEMBERS=new Set(['clipboard','createObjectURL','revokeObjectURL','href','download']);
 const NETWORK_ATTRIBUTES=new Set(['src','href','srcdoc','action','formaction','ping','data','poster','srcset','http-equiv']);
 const IMPORTS=new Set(['node-seal','@noble/curves/ed25519.js']);
-export const HTML_PROFILES=Object.freeze({'index.html':'static','gate.html':'local-ai','writer.html':'local-ai','proof-studio.html':'local-ai','privacy-lab.html':'wasm','assurance.html':'static'});
+export const HTML_PROFILES=Object.freeze({'index.html':'static','gate.html':'local-ai','writer.html':'local-ai','proof-studio.html':'local-ai','privacy-lab.html':'wasm','survey-demo.html':'offline','assurance.html':'static'});
 function constant(node){if(node?.type==='Literal')return node.value;if(node?.type==='BinaryExpression'&&node.operator==='+'){const a=constant(node.left),b=constant(node.right);if(typeof a==='string'&&typeof b==='string')return a+b;}return undefined;}
 function member(node){return node?.computed?constant(node.property):node?.property?.name;}
 
@@ -68,7 +68,7 @@ export async function checkEgress(){
   const root=new URL('../src/',import.meta.url),files=await list(root),issues=[],hashes={};
   for(const file of files.sort()){const source=await readFile(new URL(file,root),'utf8');issues.push(...inspectSource(source,file));hashes[file]=createHash('sha256').update(source).digest('hex');}
   for(const file of Object.keys(HTML_PROFILES)){const source=await readFile(new URL(file,root),'utf8');issues.push(...inspectMarkup(source,file));hashes[file]=createHash('sha256').update(source).digest('hex');}
-  for(const file of ['suite.css','styles.css','privacy-lab.css'])hashes[file]=createHash('sha256').update(await readFile(new URL(file,root))).digest('hex');
+  for(const file of ['suite.css','styles.css','privacy-lab.css','survey-demo.css'])hashes[file]=createHash('sha256').update(await readFile(new URL(file,root))).digest('hex');
   if(issues.length)throw new Error('出力経路の構文検査に失敗しました：'+JSON.stringify(issues));
   console.log(`出力経路の構文検査: ${files.length} JS + ${Object.keys(HTML_PROFILES).length} HTML。未登録の既知I/Oなし。`);
   return {kind:'first-party-ast-guardrails',soundInformationFlowAnalysis:false,files:hashes,exceptions:[{file:'browser-effects.js',purpose:'clipboard, download, authorized loopback fetch'},{file:'secure/fhe.js',purpose:'same-origin static WASM loader via node-seal'}]};

@@ -9,7 +9,7 @@ export async function writeAssurance(formal,egress){
   const root=new URL('../',import.meta.url),out=new URL('../dist/assurance/',import.meta.url);
   await mkdir(out,{recursive:true});
   const boundFiles=Object.fromEntries(Object.entries(egress.files).map(([name,digest])=>['src/'+name,digest]));
-  for(const name of ['formal/Policy.lean','formal/Agent.lean','formal/lean-toolchain','evaluation/masking-cases.json','package.json','package-lock.json','scripts/check-formal.mjs','scripts/check-egress.mjs','scripts/evaluate-masking.mjs','scripts/write-assurance.mjs','scripts/build.mjs','ASSURANCE.md','EVALUATION.md','PRIVACY_COMPUTATION.md','PRODUCTS.md'])boundFiles[name]=sha(await readFile(new URL(name,root)));
+  for(const name of ['formal/Policy.lean','formal/Agent.lean','formal/lean-toolchain','evaluation/masking-cases.json','package.json','package-lock.json','scripts/check-formal.mjs','scripts/check-egress.mjs','scripts/evaluate-masking.mjs','scripts/write-assurance.mjs','scripts/build.mjs','ASSURANCE.md','EVALUATION.md','SURVEY.md','PRIVACY_COMPUTATION.md','PRODUCTS.md'])boundFiles[name]=sha(await readFile(new URL(name,root)));
   for(const name of [...Object.keys(egress.files).filter(n=>n.endsWith('.js')),'seal_throws.wasm'])boundFiles['dist/'+name]=sha(await readFile(new URL('dist/'+name,root)));
   let commit=null,dirty=null;
   try{commit=execFileSync('git',['rev-parse','HEAD'],{cwd:fileURLToPath(root),encoding:'utf8'}).trim();dirty=!!execFileSync('git',['status','--porcelain'],{cwd:fileURLToPath(root),encoding:'utf8'}).trim();}catch{}
@@ -25,6 +25,7 @@ export async function writeAssurance(formal,egress){
   await cp(new URL('formal/Agent.lean',root),new URL('Agent.lean',out));
   await cp(new URL('ASSURANCE.md',root),new URL('ASSURANCE.md',out));
   await cp(new URL('EVALUATION.md',root),new URL('EVALUATION.md',out));
+  await cp(new URL('SURVEY.md',root),new URL('SURVEY.md',out));
   await cp(new URL('PRIVACY_COMPUTATION.md',root),new URL('PRIVACY_COMPUTATION.md',out));
   await cp(new URL('PRODUCTS.md',root),new URL('PRODUCTS.md',out));
   const htmlPath=new URL('dist/assurance.html',root),html=await readFile(htmlPath,'utf8');
