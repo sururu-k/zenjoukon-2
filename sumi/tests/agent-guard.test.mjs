@@ -16,6 +16,7 @@ test('追加の非公開語句が上限を超える場合は黙って無視せ�
   assert.throws(()=>prepareAgentDocument('架空の文書','x\n'.repeat(101)));
   assert.throws(()=>prepareAgentDocument('架空の文書','x'.repeat(101)));
   assert.ok(!prepareAgentDocument('内部限定の計画','内部限定').preview.includes('内部限定'));
+  assert.throws(()=>prepareAgentDocument('架空の文書',Array.from({length:98},(_,i)=>`独自${i}`).join('\n')),/共通ポリシー/);
 });
 test('重なって出現する指定語を含む文書は、加工された範囲だけをエージェントに渡す',async()=>{
   const doc=prepareAgentDocument('前 ababa 後','aba');
@@ -32,6 +33,8 @@ test('差し替えた文書も加工し、前の確認を失効する',async()=>
   assert.equal((await gateway.agent.execute(request)).status,'denied');
   gateway.approveDocument(request.revision);
   assert.equal((await gateway.agent.execute(request)).value,doc.preview);
+  gateway.replaceDocument('佐藤が次の連絡を担当します。');
+  assert.ok(!doc.preview.includes('佐藤'));assert.equal((await gateway.agent.execute({action:'read',resource:'approved-document',revision:gateway.revision})).status,'denied');
   const savedRevision=gateway.revision;assert.throws(()=>gateway.replaceDocument(''));assert.equal(gateway.revision,savedRevision);
 });
 
