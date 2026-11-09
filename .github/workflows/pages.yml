@@ -89,6 +89,7 @@ jobs:
           SUMI_NARGO: ${{ runner.temp }}/noir/nargo
         run: |
           npx playwright install --with-deps chromium
+          npm test
           npm run test:ui
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

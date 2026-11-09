@@ -35,8 +35,8 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForFunction(() => typeof window.runExperiment === 'function');
   const outcome = await page.evaluate(() => window.runExperiment());
-  assert.deepEqual(outcome, { valid: true, openingValid: true, wrongOpeningRejected: true, proofTamperRejected: true, tamperedRejected: true, badWitnessRejected: true, crossOriginIsolated: false });
+  assert.deepEqual(outcome, { valid: true, openingValid: true, wrongOpeningRejected: true, proofTamperRejected: true, forgedStatementsRejected: true, nulAliasRejected: true, tamperedRejected: true, badWitnessRejected: true, crossOriginIsolated: false });
   assert.ok(remote.length > 0 && remote.every(x => /^GET https:\/\/crs\.aztec-(cdn\.foundation|labs\.com)\/(g1_compressed|g2|grumpkin_g1_v2)\.dat$/.test(x)), `Unexpected external request: ${remote.join(', ')}`);
-  console.log('Browser proof verified; altered public input and invalid witness rejected. SharedArrayBuffer isolation: off.');
+  console.log('Browser proof verified; forged statements, altered proof, padded-document alias, and invalid witness rejected. SharedArrayBuffer isolation: off.');
   console.log('External requests:', remote.join(', '));
 } finally { if (browser) await browser.close(); if (server) await new Promise(resolve => server.close(resolve)); await rm(temp, { recursive: true, force: true }); }
