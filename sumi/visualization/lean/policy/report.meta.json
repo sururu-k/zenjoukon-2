@@ -1,0 +1,17 @@
+{
+  "tool": "Lean4SemanticBench",
+  "version": "0.1.0+unknown",
+  "target": {
+    "name": "SumiFormal",
+    "gitRev": null,
+    "dirty": false,
+    "toolchain": "leanprover/lean4:v4.34.1"
+  },
+  "modules": [
+    "Policy"
+  ],
+  "extraArgs": [],
+  "generatedAt": "2026-11-09T12:14:31.923Z",
+  "declCount": 414,
+  "bytes": 594582
+}

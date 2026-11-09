@@ -38,6 +38,8 @@ WriteやGateで用いる認可・情報流モデルの一部はLeanで検査し�
 
 [比較実験](sumi/EVALUATION.md#テスト例と文書全体の比較)では、意図的に不完全にした検査が少数の例を通過しても後半の指定語を見落とすことと、今回の回路も別表記を扱えないことを再現できます。
 
+[認可・情報流モデルの可視化](https://sururu-k.github.io/zenjoukon-2/lean/policy/)と[エージェント判定の可視化](https://sururu-k.github.io/zenjoukon-2/lean/agent/)では、Leanの定義・定理と依存関係を閲覧できます。認可側は原文・位置情報に関する２項目がツールの検査で不合格です。対象と限界は[説明](sumi/visualization/lean/README.md)を参照してください。
+
 ## 検証と公開
 
 GitHub Actionsは既存の自動テストとLeanモデルの検証に加え、文書証明のブラウザ上での作成・検証をテストし、成功時にGitHub Pagesへ配置します。回路の証明対象や実利用での安全性を、テストの成功だけで保証するものではありません。開発方法は [sumi/README.md](sumi/README.md) を参照してください。

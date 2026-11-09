@@ -1,0 +1,15 @@
+{
+  "format": "sumi-lean-visualization-snapshot",
+  "version": 1,
+  "tool": "Lean4SemanticBench prototype 0.1.0",
+  "toolZipSha256": "c7fa58186b4f3999952eea9253965a9a3be5137dbc997d208c3a986f7b1dfc3c",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "files": {
+    "formal/Policy.lean": "6424e290701ad3c632e98c79cb0b7a94ae36cb5d912d62157cc675ff54a0ec44",
+    "formal/Agent.lean": "d84fcd9f3bab090941acceb626913807958ffe91b86c0b5f4634fc9a9eecf50a",
+    "visualization/lean/policy/report.jsonl": "3cd27e7f79375ed3c00667d35542c7a3a20aaa255b6af2b9850e249b0cadb5ba",
+    "visualization/lean/policy/js/default-report.js": "3e6ef5599b6c01f7bdb663c97b90d4af5b9a441e3375f93d54a64bca2433cf17",
+    "visualization/lean/agent/report.jsonl": "12d8b4e99b242a74a56b3ed2884bc29e885dacac3704d3050a0670a3c226209c",
+    "visualization/lean/agent/js/default-report.js": "26178d0a76ab5b314a5470ffa2807cf7eeaae0dd2cf930e9bbaec4b0e87d39cc"
+  }
+}
