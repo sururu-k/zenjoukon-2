@@ -1,0 +1,35 @@
+import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join, dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
+import {createServer} from 'node:http';
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const here = dirname(fileURLToPath(import.meta.url));
+const temp = await mkdtemp(join(tmpdir(), 'sumi-ui-'));
+let server, browser;
+try {
+  const built = spawnSync(process.execPath, [join(here, 'build.mjs'), temp], {cwd:here, encoding:'utf8', timeout:120000});
+  if (built.status !== 0) throw new Error(`Build failed: ${built.stderr || built.error}`);
+  const files = new Set(['index.html','app.js','worker.js','suite.css','styles.css','circuit.json','acvm_js_bg.wasm','noirc_abi_wasm_bg.wasm']);
+  server = createServer(async (req,res) => { const name = req.url === '/' ? 'index.html' : req.url.slice(1); if (!files.has(name)) return res.writeHead(404).end(); try { const data = await readFile(join(temp,name)); res.setHeader('Content-Type',name.endsWith('.wasm') ? 'application/wasm' : name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : name.endsWith('.json') ? 'application/json' : 'text/html'); res.end(data); } catch { res.writeHead(500).end(); } });
+  await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
+  browser = await chromium.launch({headless:true,...(process.env.SUMI_CHROMIUM ? {executablePath:process.env.SUMI_CHROMIUM} : {})});
+  const page = await browser.newPage(); const errors = []; page.on('pageerror', e => errors.push(e.message));
+  const url = `http://127.0.0.1:${server.address().port}/`;
+  await page.goto(url); await page.locator('#prove').click();
+  await page.waitForFunction(() => document.querySelector('#create-result').hidden === false || document.querySelector('#create-status').classList.contains('error'),null,{timeout:180000});
+  assert.equal(await page.locator('#create-status').innerText(),'証明を作成しました。公開条件を確認してください。');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#save-proof').click()]);
+  const proof = JSON.parse(await readFile(await download.path(),'utf8')); const expected = await page.locator('#statement').inputValue();
+  const verifier = await browser.newPage(); await verifier.goto(url);
+  await verifier.locator('#proof-input').fill(JSON.stringify(proof)); await verifier.locator('#expected-input').fill(expected); await verifier.locator('#verify-button').click();
+  await verifier.waitForFunction(() => {const e=document.querySelector('#verify-status'); return e.textContent.includes('検証しました') || e.classList.contains('error');},null,{timeout:180000});
+  assert.equal(await verifier.locator('#verify-status').innerText(),'期待条件に対する証明を検証しました。');
+  await verifier.locator('#expected-input').fill(JSON.stringify({...JSON.parse(expected),documentLength:2})); await verifier.locator('#verify-button').click();
+  await verifier.waitForFunction(() => document.querySelector('#verify-status').classList.contains('error'),null,{timeout:30000});
+  assert.match(await verifier.locator('#verify-status').innerText(),/期待条件と一致しません/);
+  assert.deepEqual(errors,[]);
+  console.log('Separate browser pages: proof created and verified; changed expected conditions rejected.');
+} finally { if (browser) await browser.close(); if (server) await new Promise(resolve=>server.close(resolve)); await rm(temp,{recursive:true,force:true}); }

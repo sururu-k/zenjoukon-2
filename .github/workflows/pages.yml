@@ -67,6 +67,29 @@ jobs:
         run: npm test
       - name: Verify Lean model and build
         run: npm run build
+      - name: Install pinned Noir compiler
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v1.0.0 --repo noir-lang/noir --pattern noir-x86_64-unknown-linux-gnu.tar.gz --dir "$RUNNER_TEMP" --clobber
+          echo "a62f5b44a6db8ca8f0c20f841aa788ea56776e5aaf2ebd672c02dcf397901264  $RUNNER_TEMP/noir-x86_64-unknown-linux-gnu.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/noir"
+          tar -xzf "$RUNNER_TEMP/noir-x86_64-unknown-linux-gnu.tar.gz" -C "$RUNNER_TEMP/noir"
+          "$RUNNER_TEMP/noir/nargo" --version
+      - name: Build browser document proof
+        working-directory: sumi/experiments/browser-document-proof
+        env:
+          SUMI_NARGO: ${{ runner.temp }}/noir/nargo
+        run: |
+          npm ci
+          npm run build -- ../../dist/document-proof
+      - name: Test browser document proof
+        working-directory: sumi/experiments/browser-document-proof
+        env:
+          SUMI_NARGO: ${{ runner.temp }}/noir/nargo
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:ui
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4
