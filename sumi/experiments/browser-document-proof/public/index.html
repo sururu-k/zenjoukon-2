@@ -17,4 +17,8 @@
 <section id="verify" class="section"><div class="section-title"><span>02</span><div><h2>証明を確かめる</h2><p>受け取った証明と、別経路で確認した期待条件を入力します。</p></div></div>
 <div class="work-grid"><div><label for="proof-input">受け取った証明JSON</label><textarea id="proof-input" rows="7" placeholder="証明ファイルの内容を貼り付ける"></textarea></div><div><label for="expected-input">期待する条件JSON</label><textarea id="expected-input" rows="7" placeholder='{"documentLength": ..., "forbidden": [...], "commitment": "..."}'></textarea><p class="hint">証明内の条件を確認せずに使うと、別の文書や禁止語の証明を見分けられません。</p></div></div>
 <button class="button" id="verify-button" type="button">証明を検証する</button><p id="verify-status" class="feedback" role="status" aria-live="polite"></p></section>
+<section id="opening" class="section"><div class="section-title"><span>03</span><div><h2>提出する文書と照合する</h2><p>証明を検証した後、渡された文書と開封情報がその証明の対象に対応するか確かめます。</p></div></div>
+<p class="hint">文書と開封情報を確認者に渡す必要があります。文書を見せずに照合する操作ではありません。開封情報は信頼できる相手だけに渡してください。</p>
+<div class="work-grid"><div><label for="opening-document">確認する文書</label><textarea id="opening-document" rows="6" placeholder="提出された文書を貼り付ける"></textarea></div><div><label for="opening-input">非公開の開封情報JSON</label><textarea id="opening-input" rows="6" placeholder="開封情報ファイルの内容を貼り付ける"></textarea></div></div>
+<button class="button" id="opening-button" type="button" disabled>文書との対応を確かめる</button><p class="hint">先に上の証明を検証してください。証明や期待条件を変更した場合は、再検証が必要です。</p><p id="opening-status" class="feedback" role="status" aria-live="polite"></p></section>
 <footer>検証鍵はこの端末の回路から生成します。回路・ツールの真正性は別途確認が必要です。PDFや表記ゆれは対象外です。</footer></main></body></html>
