@@ -12,7 +12,7 @@ let server, browser;
 try {
   const built = spawnSync(process.execPath, [join(here, 'build.mjs'), temp], {cwd:here, encoding:'utf8', timeout:120000});
   if (built.status !== 0) throw new Error(`Build failed: ${built.stderr || built.error}`);
-  const files = new Set(['index.html','app.js','school-policy.example.json','worker.js','suite.css','styles.css','circuit.json','acvm_js_bg.wasm','noirc_abi_wasm_bg.wasm']);
+  const files = new Set(['index.html','app.js','school-policy.example.json','school-policy-contract.js','worker.js','suite.css','styles.css','circuit.json','acvm_js_bg.wasm','noirc_abi_wasm_bg.wasm']);
   server = createServer(async (req,res) => { const name = req.url === '/' ? 'index.html' : req.url.slice(1); if (!files.has(name)) return res.writeHead(404).end(); try { const data = await readFile(join(temp,name)); res.setHeader('Content-Type',name.endsWith('.wasm') ? 'application/wasm' : name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : name.endsWith('.json') ? 'application/json' : 'text/html'); res.end(data); } catch { res.writeHead(500).end(); } });
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
   browser = await chromium.launch({headless:true,...(process.env.SUMI_CHROMIUM ? {executablePath:process.env.SUMI_CHROMIUM} : {})});

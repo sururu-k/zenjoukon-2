@@ -1,6 +1,7 @@
 // Self-reported observations are never treated as independently verified facts.
-import schoolPolicy from './school-policy.example.json' with { type: 'json' };
-export const SCHOOL_POLICY = Object.freeze({ ...schoolPolicy.assessment, controls: Object.freeze(schoolPolicy.assessment.controls.map(c => Object.freeze({ ...c }))) });
+import schoolPolicyData from './school-policy.example.json' with { type: 'json' };
+import { validateSchoolPolicy } from './school-policy-contract.js';
+export const SCHOOL_POLICY = validateSchoolPolicy(schoolPolicyData).assessment;
 export function assessSchoolPolicy(policy,observations){
   if(policy?.format!=='sumi-school-policy'||policy.version!==1||!Array.isArray(policy.controls)||policy.controls.length<1||policy.controls.length>100||!observations||typeof observations!=='object'||Array.isArray(observations))throw new Error('ポリシーまたは確認結果の形式が不正です。');
   const ids=new Set();

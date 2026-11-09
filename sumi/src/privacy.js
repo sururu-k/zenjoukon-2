@@ -1,8 +1,9 @@
 // 原文の文字位置を維持し、置換は利用者が選んだルールから決定する。
 export const MAX_TEXT = 50000;
 export const LABELS = { PERSON: '氏名', ADDRESS: '居住地', AGE: '年齢', SCHOOL: '学校', CLASS: 'クラス', ROLE: '役職', CLUB: '部活動', EMAIL: 'メール', PHONE: '電話番号', CARD: 'カード番号', CUSTOM: '指定した言葉', COMMUTE: '通学時間' };
-import schoolPolicy from './school-policy.example.json' with { type: 'json' };
-export const PRESETS = schoolPolicy.disclosurePresets;
+import schoolPolicyData from './school-policy.example.json' with { type: 'json' };
+import { validateSchoolPolicy } from './school-policy-contract.js';
+export const PRESETS = validateSchoolPolicy(schoolPolicyData).disclosurePresets;
 export const SAMPLE = `氏名：山田太郎、クラス：2年3組、学校：愛知県立さくら高校、居住地：愛知県豊田市、年齢：16歳、部活動：吹奏楽部、役職：部長、通学：90分、交通手段：電車。朝の混雑と乗り換えが大変です。
 氏名：佐藤花子、クラス：2年1組、学校：愛知県立さくら高校、居住地：愛知県名古屋市、年齢：17歳、部活動：美術部、通学：45分、交通手段：電車。混雑する時間を避けたいです。
 氏名：鈴木健太、クラス：1年2組、学校：愛知県立さくら高校、居住地：愛知県岡崎市、年齢：15歳、部活動：サッカー部、通学：70分、交通手段：バス。バスの待ち時間が長いです。

@@ -1,4 +1,6 @@
-import schoolPolicy from './school-policy.example.json' with { type: 'json' };
+import schoolPolicyData from './school-policy.example.json' with { type: 'json' };
+import { validateSchoolPolicy } from './school-policy-contract.js';
+const schoolPolicy = validateSchoolPolicy(schoolPolicyData);
 const $ = id => document.getElementById(id);
 const worker = new Worker('./worker.js', {type:'module'});
 let job = 0, pending = null, currentProof = null, currentOpening = null, verifiedExpected = null;

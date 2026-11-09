@@ -23,3 +23,26 @@ test('同じ学校向け設定から共有プリセットと文書証明の初�
   assert.ok(schoolPolicy.documentProof.forbidden.length >= 1 && schoolPolicy.documentProof.forbidden.length <= 4);
   for (const word of schoolPolicy.documentProof.forbidden) assert.ok(typeof word === 'string' && Buffer.byteLength(word) > 0 && Buffer.byteLength(word) <= 16);
 });
+
+import { validateSchoolPolicy } from '../src/school-policy-contract.js';
+
+test('共通設定の不正な版・未知項目・型や文字数の異常を拒否する', () => {
+  const clone = () => structuredClone(schoolPolicy);
+  const mutations = [
+    p => { p.version = 2; },
+    p => { delete p.documentProof; },
+    p => { p.unexpected = true; },
+    p => { p.disclosurePresets.public.location = 'raw'; },
+    p => { p.disclosurePresets.public.keepCommute = 'true'; },
+    p => { p.documentProof.forbidden = []; },
+    p => { p.documentProof.forbidden = ['長'.repeat(6)]; },
+    p => { p.documentProof.forbidden = ['山\n田']; },
+    p => { p.assessment.controls.push({...p.assessment.controls[0]}); },
+    p => { p.assessment.controls[0].required = 'true'; },
+  ];
+  for (const mutate of mutations) { const candidate = clone(); mutate(candidate); assert.throws(() => validateSchoolPolicy(candidate), /形式が不正/); }
+  const valid = validateSchoolPolicy(clone());
+  assert.ok(Object.isFrozen(valid));
+  assert.ok(Object.isFrozen(valid.documentProof.forbidden));
+  assert.ok(Object.isFrozen(valid.disclosurePresets.public));
+});
