@@ -10,11 +10,25 @@ worker.onerror = () => { if (pending) { pending.reject(new Error('証明処理�
 function run(action, data) { if (pending) return Promise.reject(new Error('別の処理が実行中です。')); return new Promise((resolve, reject) => { const id = ++job; pending = {id, resolve, reject}; worker.postMessage({id, action, data}); }); }
 function refreshBytes() { $('byte-count').textContent = `${new TextEncoder().encode($('document').value).length} / 512 バイト`; }
 function invalidate() { currentProof = currentOpening = null; $('create-result').hidden = true; $('create-empty').hidden = false; status('create-status', ''); }
-for (const id of ['document', 'terms']) $(id).addEventListener('input', () => { invalidate(); refreshBytes(); });
+for (const id of ['document', 'terms']) $(id).addEventListener('input', () => { invalidate(); if (id === 'terms') status('policy-status', ''); refreshBytes(); });
 $('terms').value = schoolPolicy.documentProof.forbidden.join('\n');
 refreshBytes();
 function download(name, value) { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2) + '\n'], {type:'application/json'})); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
-function busy(value) { for (const id of ['prove','verify-button','document','terms','proof-input','expected-input','opening-document','opening-input','proof-file','expected-file','opening-file']) $(id).disabled = value; $('opening-button').disabled = value || !verifiedExpected; }
+function busy(value) { for (const id of ['prove','verify-button','document','terms','policy-file','proof-input','expected-input','opening-document','opening-input','proof-file','expected-file','opening-file']) $(id).disabled = value; $('opening-button').disabled = value || !verifiedExpected; }
+$('policy-file').addEventListener('change', async event => {
+  const file = event.target.files[0]; event.target.value = '';
+  if (!file) return;
+  invalidate(); busy(true); status('policy-status', '設定を読み込んでいます。');
+  try {
+    if (file.size > 1024 * 1024) throw new Error('設定ファイルは1 MiB以内にしてください。');
+    const text = new TextDecoder('utf-8', {fatal:true}).decode(await file.arrayBuffer());
+    const policy = validateSchoolPolicy(JSON.parse(text));
+    $('terms').value = policy.documentProof.forbidden.join('\n');
+    status('policy-status', '禁止語を読み込みました。内容と発行元を確認してください。');
+  } catch (error) {
+    status('policy-status', error.message.startsWith('設定ファイルは') ? error.message : '共通設定を読み込めません。以前の禁止語を確認してください。', true);
+  } finally { busy(false); }
+});
 $('prove').addEventListener('click', async () => {
   busy(true); invalidate(); status('create-status', '証明を作成しています。初回は公開データを取得します。');
   try { const result = await run('prove', {text:$('document').value, terms:$('terms').value.split(/\r?\n/).filter(x => x.length)}); currentProof = result.proof; currentOpening = result.opening; $('statement').value = JSON.stringify(currentProof.statement, null, 2); $('create-empty').hidden = true; $('create-result').hidden = false; status('create-status', '証明を作成しました。公開条件を確認してください。'); }

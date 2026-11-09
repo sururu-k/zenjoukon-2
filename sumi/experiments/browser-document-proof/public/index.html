@@ -7,6 +7,7 @@
 <div class="notice"><strong>架空データでの実験です</strong><p>文書はブラウザ内で処理します。証明用の公開データを外部から取得します。禁止語と文書のバイト数は公開されます。外部監査を受けていないため、実際の個人情報には使わないでください。</p></div>
 <section id="create" class="section"><div class="section-title"><span>01</span><div><h2>証明を作る</h2><p>例文を編集し、公開してよい禁止語を指定します。</p></div></div>
 <div class="work-grid"><div><label for="document">文書 <small>UTF-8で512バイト以内</small></label><textarea id="document" rows="6" maxlength="512">文化祭のお知らせ。来月、体育館で開催します。</textarea><p id="byte-count" class="hint" aria-live="polite"></p>
+<label for="policy-file">学校別の共通設定ファイル（任意）</label><input id="policy-file" type="file" accept=".json,application/json"><p class="hint">設定の禁止語を読み込みます。発行元や内容は別途確認してください。</p><p id="policy-status" class="feedback" role="status" aria-live="polite"></p>
 <label for="terms">禁止語 <small>１行に１語、４語まで。各16バイト以内</small></label><textarea id="terms" rows="4">山田
 佐藤
 電話番号</textarea><p class="hint">完全一致だけを検査します。表記ゆれや画像中の文字は対象外です。</p>

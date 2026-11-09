@@ -21,6 +21,12 @@ try {
   await page.goto(url);
   const policy = JSON.parse(await readFile(join(here, '../../src/school-policy.example.json'), 'utf8'));
   assert.equal(await page.locator('#terms').inputValue(), policy.documentProof.forbidden.join('\n'));
+  const customPolicy = structuredClone(policy); customPolicy.documentProof.forbidden = ['未公開'];
+  await page.locator('#policy-file').setInputFiles({name:'policy.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(customPolicy))});
+  await page.waitForFunction(() => document.querySelector('#policy-status').textContent.includes('読み込みました'));
+  assert.equal(await page.locator('#terms').inputValue(),'未公開');
+  await page.locator('#terms').fill(policy.documentProof.forbidden.join('\n'));
+  assert.equal(await page.locator('#policy-status').innerText(),'');
   await page.locator('#prove').click();
   await page.waitForFunction(() => document.querySelector('#create-result').hidden === false || document.querySelector('#create-status').classList.contains('error'),null,{timeout:180000});
   assert.equal(await page.locator('#create-status').innerText(),'証明を作成しました。公開条件を確認してください。');
@@ -28,6 +34,10 @@ try {
   const proof = JSON.parse(await readFile(await download.path(),'utf8')); const expected = await page.locator('#statement').inputValue();
   const [openingDownload] = await Promise.all([page.waitForEvent('download'), page.locator('#save-opening').click()]);
   const opening = await readFile(await openingDownload.path(),'utf8'); const document = await page.locator('#document').inputValue();
+  await page.locator('#policy-file').setInputFiles({name:'invalid-policy.json',mimeType:'application/json',buffer:Buffer.from('{}')});
+  await page.waitForFunction(() => document.querySelector('#policy-status').classList.contains('error'));
+  assert.equal(await page.locator('#create-result').isHidden(),true);
+  assert.equal(await page.locator('#terms').inputValue(),policy.documentProof.forbidden.join('\n'));
   const verifier = await browser.newPage(); await verifier.goto(url);
   await verifier.locator('#proof-file').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{')});
   await verifier.waitForFunction(() => document.querySelector('#verify-status').classList.contains('error'));
