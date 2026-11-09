@@ -10,7 +10,7 @@ function invalidate() { currentProof = currentOpening = null; $('create-result')
 for (const id of ['document', 'terms']) $(id).addEventListener('input', () => { invalidate(); refreshBytes(); });
 refreshBytes();
 function download(name, value) { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2) + '\n'], {type:'application/json'})); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
-function busy(value) { for (const id of ['prove','verify-button','document','terms','proof-input','expected-input','opening-document','opening-input']) $(id).disabled = value; $('opening-button').disabled = value || !verifiedExpected; }
+function busy(value) { for (const id of ['prove','verify-button','document','terms','proof-input','expected-input','opening-document','opening-input','proof-file','expected-file','opening-file']) $(id).disabled = value; $('opening-button').disabled = value || !verifiedExpected; }
 $('prove').addEventListener('click', async () => {
   busy(true); invalidate(); status('create-status', '証明を作成しています。初回は公開データを取得します。');
   try { const result = await run('prove', {text:$('document').value, terms:$('terms').value.split(/\r?\n/).filter(x => x.length)}); currentProof = result.proof; currentOpening = result.opening; $('statement').value = JSON.stringify(currentProof.statement, null, 2); $('create-empty').hidden = true; $('create-result').hidden = false; status('create-status', '証明を作成しました。公開条件を確認してください。'); }
@@ -22,6 +22,24 @@ $('save-opening').addEventListener('click', () => { if (currentOpening) download
 function invalidateVerification() { verifiedExpected = null; $('opening-button').disabled = true; status('verify-status', ''); status('opening-status', ''); }
 for (const id of ['proof-input','expected-input']) $(id).addEventListener('input', invalidateVerification);
 for (const id of ['opening-document','opening-input']) $(id).addEventListener('input', () => status('opening-status', ''));
+for (const [fileId, targetId, messageId, limit] of [
+  ['proof-file','proof-input','verify-status',200000],
+  ['expected-file','expected-input','verify-status',10000],
+  ['opening-file','opening-input','opening-status',10000],
+]) $(fileId).addEventListener('change', async event => {
+  const file = event.target.files[0]; event.target.value = '';
+  if (!file) return;
+  const target = $(targetId); target.value = ''; target.dispatchEvent(new Event('input', {bubbles:true}));
+  busy(true);
+  try {
+    if (file.size > limit) throw new Error('ファイルが大きすぎます。正しい JSON ファイルを選んでください。');
+    const text = new TextDecoder('utf-8', {fatal:true}).decode(await file.arrayBuffer());
+    JSON.parse(text);
+    target.value = text; target.dispatchEvent(new Event('input', {bubbles:true}));
+    status(messageId, 'ファイルを読み込みました。内容を確認してください。');
+  } catch (error) { status(messageId, error.message.startsWith('ファイルが') ? error.message : 'UTF-8 の正しい JSON ファイルを選んでください。', true); }
+  finally { busy(false); }
+});
 $('verify-button').addEventListener('click', async () => {
   invalidateVerification();
   let proof, expected; try { proof = JSON.parse($('proof-input').value); expected = JSON.parse($('expected-input').value); } catch { status('verify-status', '証明と期待条件に正しい JSON を入力してください。', true); return; }
