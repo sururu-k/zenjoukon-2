@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { prepareAgentDocument } from '../src/agent-document.js';
 import { createAgentAssistant } from '../src/agent-assistant.js';
 import { createAgentLocalTransport } from '../scripts/agent-local-transport.mjs';
+import examplePolicy from '../src/school-policy.example.json' with { type: 'json' };
 
 // A real loopback HTTP connection to a fictional model service, never an LLM.
 // Bind exclusively; do not send test data to any existing service.
@@ -23,7 +24,9 @@ test('ローカルHTTPへの送信前に共通語句を加工し、確認前は�
   });
   if (!available) { t.skip('127.0.0.1:11434 は別のサービスが使用中'); return; }
   try {
-    const prepared=prepareAgentDocument('文化祭は山田が準備します。');
+    const schoolPolicy=structuredClone(examplePolicy);
+    schoolPolicy.documentProof.forbidden=['青空祭','山田'];
+    const prepared=prepareAgentDocument('青空祭は山田が準備します。','',schoolPolicy);
     const gateway=prepared.gateway, params={endpoint:'http://127.0.0.1:11434',model:'fixture:test',revision:gateway.revision,consented:true};
     const assistant=createAgentAssistant(gateway,createAgentLocalTransport(gateway));
     await assert.rejects(assistant.summarize(params));
@@ -33,5 +36,6 @@ test('ローカルHTTPへの送信前に共通語句を加工し、確認前は�
     assert.deepEqual(received.map(x=>x.path),['/api/show','/api/generate']);
     assert.ok(JSON.stringify(received).includes('[非公開]'));
     assert.ok(!JSON.stringify(received).includes('山田'));
+    assert.ok(!JSON.stringify(received).includes('青空祭'));
   } finally { await new Promise(resolve=>server.close(resolve)); }
 });
