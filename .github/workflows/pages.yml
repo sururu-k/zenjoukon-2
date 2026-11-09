@@ -83,6 +83,11 @@ jobs:
         run: |
           npm ci
           npm run build -- ../../dist/document-proof
+      - name: Verify shared school policy workflow
+        env:
+          SUMI_NARGO: ${{ runner.temp }}/noir/nargo
+          SUMI_BB: ${{ github.workspace }}/sumi/experiments/browser-document-proof/node_modules/@aztec-foundation/bb.js/build/amd64-linux/bb
+        run: node scripts/shared-policy-demo.mjs
       - name: Test browser document proof
         working-directory: sumi/experiments/browser-document-proof
         env:
