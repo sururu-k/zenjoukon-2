@@ -14,6 +14,7 @@ async function main(){
   const before=await gateway.agent.execute(proposal);
   if(before.status!=='denied')throw new Error('確認前の操作が拒否されませんでした。');
   stdout.write(`確認前の判定：拒否（${before.reason}）\n`);
+  stdout.write(`ルール上の判定：${before.event.policyDecision} / 実行結果：${before.event.status}\n`);
   if(action==='send'){
     stdout.write('外部送信の機能はありません。通信は行っていません。\n');
     process.exitCode=2;return;
@@ -25,6 +26,7 @@ async function main(){
   gateway.approveDocument(proposal.revision);
   const result=await gateway.agent.execute(proposal);
   if(result.status!=='completed')throw new Error(result.reason);
+  stdout.write(`ルール上の判定：${result.event.policyDecision} / 実行結果：${result.event.status}\n`);
   stdout.write(`\n操作結果：\n${result.value}\n`);
   stdout.write('※この操作は固定処理です。AI、外部通信、ファイルへの保存は行っていません。\n');
 }

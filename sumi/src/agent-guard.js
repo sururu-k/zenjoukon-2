@@ -38,17 +38,22 @@ export function createAgentGateway(initialDocument){
   let documentText=initialDocument,revision=0,approvedRevision=null;
   const agent=Object.freeze({
     async execute(proposal){
-      if(!proposal||typeof proposal.action!=='string'||typeof proposal.resource!=='string'||!Number.isInteger(proposal.revision))throw new Error('操作の提案が不正です。');
-      const request={actor:'agent',action:proposal.action,resource:proposal.resource};
+      if(!proposal||typeof proposal!=='object')throw new Error('操作の提案が不正です。');
+      // Snapshot caller-controlled fields before the asynchronous receipt hash.
+      const {action,resource,revision:requestedRevision}=proposal;
+      if(typeof action!=='string'||typeof resource!=='string'||!Number.isInteger(requestedRevision))throw new Error('操作の提案が不正です。');
+      const request={actor:'agent',action,resource};
       const decision=evaluateAgentAction(request);
       const receipt=await createDecisionReceipt(request);
-      if(proposal.revision!==revision)return {status:'denied',reason:'文書が変更されました。',receipt};
-      if(decision.decision!=='allow')return {status:'denied',reason:decision.reason,receipt};
-      if(approvedRevision!==revision)return {status:'denied',reason:'この版の文書はまだ確認されていません。',receipt};
-      if(proposal.resource!=='approved-document')return {status:'denied',reason:'対象を確認できません。',receipt};
-      if(proposal.action==='read')return {status:'completed',value:documentText,receipt};
-      if(proposal.action==='summarize')return {status:'completed',value:documentText.split(/(?<=[。！？])|\n/u).map(s=>s.trim()).filter(Boolean).slice(0,3).join('\n'),receipt};
-      return {status:'denied',reason:'未実装の操作です。',receipt};
+      // The event contains metadata only; it is not a signed or durable log.
+      const result=(status,reason,value)=>({status,reason,...(status==='completed'?{value}:{}),receipt,event:Object.freeze({actor:'agent',action,resource,requestedRevision,currentRevision:revision,policyDecision:decision.decision,status,reason})});
+      if(requestedRevision!==revision)return result('denied','文書が変更されました。');
+      if(decision.decision!=='allow')return result('denied',decision.reason);
+      if(approvedRevision!==revision)return result('denied','この版の文書はまだ確認されていません。');
+      if(resource!=='approved-document')return result('denied','対象を確認できません。');
+      if(action==='read')return result('completed','確認済みの文書を読み取りました。',documentText);
+      if(action==='summarize')return result('completed','確認済みの文書から先頭３文を抽出しました。',documentText.split(/(?<=[。！？])|\n/u).map(s=>s.trim()).filter(Boolean).slice(0,3).join('\n'));
+      return result('denied','未実装の操作です。');
     }
   });
   return Object.freeze({

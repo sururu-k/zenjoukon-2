@@ -43,13 +43,13 @@ console.log('※件数・合計などから個別値が推測される場合が�
 console.log('【Agent】確認した版だけを取り出す');
 const gateway=createAgentGateway('作品発表会は来月です。詳細は後日お知らせします。');
 const proposal={action:'summarize',resource:'approved-document',revision:gateway.revision};
-assert.equal((await gateway.agent.execute(proposal)).status,'denied');
-console.log('確認前の要約：拒否');
+const before=await gateway.agent.execute(proposal);assert.equal(before.status,'denied');
+console.log(`確認前の要約：拒否（ルール ${before.event.policyDecision} / 実行 ${before.event.status}）`);
 gateway.approveDocument(gateway.revision);
 const summary=await gateway.agent.execute(proposal);assert.equal(summary.status,'completed');
-console.log('確認を模擬した後の要約：'+summary.value);
+console.log(`確認を模擬した後の要約（実行 ${summary.event.status}）：`+summary.value);
 const external=await gateway.agent.execute({action:'send',resource:'external-service',revision:gateway.revision});
-assert.equal(external.status,'denied');console.log('外部送信の提案：拒否（通信処理なし）');
+assert.equal(external.status,'denied');console.log(`外部送信の提案：拒否（ルール ${external.event.policyDecision} / 実行 ${external.event.status}、通信処理なし）`);
 gateway.replaceDocument('日程を変更しました。');
 assert.equal((await gateway.agent.execute({...proposal,revision:gateway.revision})).status,'denied');
 console.log('文書変更後の要約：再確認まで拒否');

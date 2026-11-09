@@ -22,6 +22,19 @@ test('確認した版だけをエージェントに渡し、変更後は再確�
   gateway.approveDocument(gateway.revision);
   assert.equal((await gateway.agent.execute(proposal())).value,'変更後');
 });
+test('判定と実行結果を分け、非同期処理中の提案の書き換えを拒否する',async()=>{
+  const secret='非公開の本文';const gateway=createAgentGateway(secret);
+  const input={action:'read',resource:'approved-document',revision:gateway.revision};
+  const blocked=await gateway.agent.execute(input);
+  assert.equal(blocked.event.policyDecision,'allow');assert.equal(blocked.event.status,'denied');
+  assert.ok(!JSON.stringify(blocked.event).includes(secret));
+  gateway.approveDocument(gateway.revision);
+  const pending=gateway.agent.execute(input);
+  gateway.replaceDocument('差し替え後');gateway.approveDocument(gateway.revision);input.revision=gateway.revision;
+  const stale=await pending;assert.equal(stale.status,'denied');assert.equal(stale.event.requestedRevision,0);assert.equal(stale.event.currentRevision,1);
+  const denied=await gateway.agent.execute({action:'send',resource:'external-service',revision:gateway.revision});
+  assert.equal(denied.event.policyDecision,'deny');assert.equal(denied.event.status,'denied');
+});
 test('判定記録の整合性を再計算する（記録の発行者や操作の実行は証明しない）',async()=>{
   const receipt=await createDecisionReceipt({actor:'agent',action:'send',resource:'external-service'});assert.equal(await verifyDecisionReceipt(receipt),true);
   const changed=structuredClone(receipt);changed.result.decision='allow';assert.equal(await verifyDecisionReceipt(changed),false);
