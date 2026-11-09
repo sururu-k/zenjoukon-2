@@ -1,4 +1,5 @@
 # Local reference material; it is not part of the product distribution.
 /true/
 /sumi/.openai/
+/.codex-presentation-build/
 .DS_Store
