@@ -7,3 +7,5 @@ body{font-size:16px;line-height:1.7}
 label{font-size:15px;margin:16px 0 8px}label small{font-size:13px;color:#52674f;font-weight:400}textarea{font-size:16px!important;line-height:1.6!important;padding:12px!important;border-radius:8px!important}textarea[readonly]{background:#f1f4ed}
 .button{font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px}.hint{font-size:13px;color:#52674f}.feedback{min-height:1.7em;font-weight:600;color:#205b40}.feedback.error{color:#9a3528}.private-note{font-size:13px;color:#803a2b}.actions{gap:8px}footer{font-size:13px;line-height:1.7;color:#52674f}
 @media(max-width:700px){.document-main{padding:32px 20px}.intro h1{font-size:30px}.work-grid{grid-template-columns:1fr;gap:20px}.section{padding:32px 0}}
+
+input[type=file]{display:block;max-width:100%;font:inherit;font-size:16px;margin:0 0 12px}
