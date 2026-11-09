@@ -37,5 +37,16 @@ test('ローカルHTTPへの送信前に共通語句を加工し、確認前は�
     assert.ok(JSON.stringify(received).includes('[非公開]'));
     assert.ok(!JSON.stringify(received).includes('山田'));
     assert.ok(!JSON.stringify(received).includes('青空祭'));
+    const beforeCollision=received.length;
+    assert.throws(()=>prepareAgentDocument('非公開の予定','非公開'),/加工後も指定語が残る/);
+    assert.equal(received.length,beforeCollision);
+    const phone=prepareAgentDocument('連絡先：090-1234-5678');
+    phone.gateway.approveDocument(phone.gateway.revision);
+    const phoneAssistant=createAgentAssistant(phone.gateway,createAgentLocalTransport(phone.gateway));
+    await phoneAssistant.summarize({...params,revision:phone.gateway.revision});
+    assert.equal(received.length,beforeCollision+2);
+    const sentDocument=JSON.parse(received.at(-1).body.prompt).document;
+    assert.ok(!sentDocument.includes('電話番号'));
+    assert.ok(!sentDocument.includes('090-1234-5678'));
   } finally { await new Promise(resolve=>server.close(resolve)); }
 });
