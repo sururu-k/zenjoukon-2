@@ -12,6 +12,7 @@ node scripts/sumi.mjs prove examples/prove.json /tmp/sumi-proof.json
 node scripts/sumi.mjs verify /tmp/sumi-proof.json
 node scripts/school-agent.mjs examples/gate.txt summarize
 node scripts/school-agent.mjs examples/gate.txt send
+node scripts/school-agent.mjs examples/gate.txt summarize-ai <インストール済みのモデル名>
 ```
 
 Write は文書の題名・種類・本文用メモから文書を作り、Gate は既存のテキストを加工します。Prove は数値からコミット済み合計の証明を作り、別の端末でも検証できます。証明は個別の入力値を含みませんが、件数・合計・用途は公開します。入力が事実であることや、情報漏洩全体の不在は証明しません。
@@ -20,6 +21,6 @@ Write は文書の題名・種類・本文用メモから文書を作り、Gate 
 
 ３製品は `sumi-egress-v1` の同じ出力認可を使います。学校向け点検の共通５項目は `node scripts/school-audit.mjs guide` で、理由を読みながら点検できます。設定案は `node scripts/school-audit.mjs draft` で表示します。点検は出力認可とは別の自己申告モデルで、実環境を自動で調べたり設定を適用したりはしません。
 
-`school-agent.mjs` は指定したテキストからメールアドレスなどの候補を自動で加工し、エージェントに渡す全文を表示します。確認を受けてから、加工版の読み取りや先頭３文の抽出を行います。候補の検出には漏れがあるため、加工版の全文を確認してください。`send` は拒否し、通信処理はありません。これはAIモデルによる要約ではありません。制御はこのプログラム内に限られ、同じ端末の他のアプリの動作は制限しません。
+`school-agent.mjs` は指定したテキストからメールアドレスなどの候補を自動で加工し、エージェントに渡す全文を表示します。`summarize` は固定処理で先頭３文を抽出します。`summarize-ai` は確認を受けた加工版をローカルの Ollama に送り、AIによる要約案を表示します。Ollama の起動とモデルの準備は別途必要です。加工の検出漏れやAIの誤りがあり得るため、加工版と要約案を人が確認してください。`send` は拒否し、通信処理はありません。AIを使う場合、Ollamaやモデル自体の外部通信はこのプログラムでは制御できません。
 
 この端末版は、実際のファイルを扱える試作です。ログイン、複数利用者の権限管理、組織の設定を自動収集・適用する機能、OSや他のアプリの操作を強制する機能はありません。実際の個人情報の運用に投入する前に、設計と環境の検証が必要です。
