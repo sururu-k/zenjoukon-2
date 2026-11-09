@@ -30,6 +30,8 @@ node scripts/noir-document-v2.mjs open example.txt opening-v2.json expected-v2.j
 
 `opening-v2.json` は非公開です。検証者が別経路で確認する `expected-v2.json` は `documentLength`（UTF-8バイト数）、`forbidden`（順序を含む配列）、`commitment`（64文字の16進数）を持ちます。証明に添付された条件を無確認で受け入れてはいけません。検証鍵は検証者の手元の回路から生成しますが、その回路とツールの真正性の確認は別途必要です。
 
+端末版は、文書とJSONファイルに不正なUTF-8が含まれる場合、置換文字に変換せず拒否します。ローカル画面のHTTP入力も同様に拒否します。これは入力の文字を取り違えないための検査で、表記ゆれの検出ではありません。
+
 `node scripts/noir-document-v2-demo.mjs` は架空文書で４語の証明を生成・検証し、禁止語の混入・末尾での一致・コミットメントの改変を試します。`node --test tests/noir-document-v2-integration.test.mjs` は利用者向けコマンドも試します。両方とも `SUMI_NARGO` と `SUMI_BB` が必要です。１端末での１回の測定では、４語の回路の証明生成に約3.5秒かかりました。環境により変わります。
 
 文字列はバイトの完全一致で、表記ゆれ・Unicode正規化・PDF解析・画像中の文字には対応していません。短い文書の実験であり、回路や暗号プロトコルは外部監査を受けていません。実際の学校データでの安全性を示すものではありません。
