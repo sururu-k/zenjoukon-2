@@ -4,7 +4,7 @@ import { stdin, stdout } from 'node:process';
 import { SCHOOL_POLICY, assessSchoolPolicy, generateConfigurationDraft } from '../src/school-policy.js';
 import { inspectStoragePath } from './storage-inspection.mjs';
 
-const [command, file, extra]=process.argv.slice(2);
+const [command, file, extra, ...rest]=process.argv.slice(2);
 async function walkthrough(){
   const observations=Object.create(null),controls=SCHOOL_POLICY.controls;
   stdout.write('学校の情報を守る点検\n確認した内容を自分で入力します。実際の設定の自動確認や適用は行いません。\n\n');
@@ -29,12 +29,29 @@ async function walkthrough(){
   if(!report.complete)process.exitCode=2;
 }
 try {
-  if(extra||!['check','draft','guide','inspect-path'].includes(command)||['check','inspect-path'].includes(command)&&!file||!['check','inspect-path'].includes(command)&&file)throw new Error('使い方: node scripts/school-audit.mjs guide | check <確認結果.json> | draft | inspect-path <保存先>');
+  const invalid=rest.length||!['check','draft','guide','inspect-path','review'].includes(command)||
+    (['check','inspect-path'].includes(command)&&(!file||extra))||
+    (['guide','draft'].includes(command)&&(file||extra))||
+    (command==='review'&&(!file||!extra));
+  if(invalid)throw new Error('使い方: node scripts/school-audit.mjs guide | check <確認結果.json> | draft | inspect-path <保存先> | review <確認結果.json> <保存先>');
   if(command==='guide')await walkthrough();
   else if(command==='inspect-path'){
     const output=await inspectStoragePath(file);
     process.stdout.write(JSON.stringify(output,null,2)+'\n');
     if(output.result!=='basic-mode-ok')process.exitCode=2;
+  }
+  else if(command==='review'){
+    const assessment=assessSchoolPolicy(SCHOOL_POLICY,JSON.parse(await readFile(file,'utf8')));
+    const storage=await inspectStoragePath(extra);
+    const actions=assessment.results.filter(item=>item.required&&item.status!=='reported-met').map(item=>({
+      control:item.id,source:'self-reported',reason:item.status==='unknown'?'未確認':'未対応',
+      next:`${item.title}を担当者に確認する`
+    }));
+    if(storage.result==='review-needed')actions.push({control:'least_privilege',source:'observed-posix-mode',reason:'保存先の所有者または基本権限を要確認',next:'保存先の所有者とアクセス権を管理者に確認する'});
+    const output={format:'sumi-school-review',version:1,assessment,storage,actions,
+      note:'自己申告と指定した１箇所の権限情報です。学校全体の適合性や漏洩の不在は証明しません。'};
+    stdout.write(JSON.stringify(output,null,2)+'\n');
+    if(actions.length)process.exitCode=2;
   }
   else{
     const output=command==='draft'?generateConfigurationDraft(SCHOOL_POLICY):assessSchoolPolicy(SCHOOL_POLICY,JSON.parse(await readFile(file,'utf8')));
