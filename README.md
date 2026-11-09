@@ -4,13 +4,12 @@
 
 ## 応募資料
 
-- [応募用紙を読む（PDF）](sumi/submission/Sumi_応募用紙_第５回_学校別設定.pdf)
-- [応募用紙を編集する（PowerPoint）](sumi/submission/Sumi_応募用紙_第５回_学校別設定.pptx)
+- [応募用紙（PowerPoint）：ZKが必要な理由とアクター別の解決](sumi/submission/Sumi_応募用紙_第５回_ZKの必要性.pptx)
 - [実画面のデモ動画（約75秒）](sumi/submission/文書の証明_学校別設定デモ.mp4)
 - [審査向けデモ手順](sumi/submission/審査向けデモ手順.md)
 
 応募用紙は依頼に合わせて第５回と記載しています。2026年11月9日に確認した[公式サイト](https://zenjyocon.jp/contest2026)は第４回を募集中と案内しており、第５回の正式な指定用紙との一致は未確認です。
-PDFは画面表示用の画像で、編集にはPowerPoint版を使用してください。
+GitHubでは PowerPoint を直接表示できないため、ダウンロードして開いてください。
 
 ## ブラウザで試す
 
