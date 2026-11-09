@@ -8,11 +8,13 @@ import { fileURLToPath } from 'node:url';
 import examplePolicy from '../src/school-policy.example.json' with {type:'json'};
 import { validateSchoolPolicy } from '../src/school-policy-contract.js';
 import { prepareAgentDocument } from '../src/agent-document.js';
+import { inspectStoragePath } from './storage-inspection.mjs';
 
 // Fictional data only. Every output file is created in a temporary directory.
 const dir=await mkdtemp(join(tmpdir(),'sumi-shared-policy-'));
 const source=fileURLToPath(new URL('../noir/document_absence_v2/',import.meta.url));
 const audit=fileURLToPath(new URL('./school-audit.mjs',import.meta.url));
+const workspaceScript=fileURLToPath(new URL('./school-workspace.mjs',import.meta.url));
 const nargo=process.env.SUMI_NARGO||'nargo', bb=process.env.SUMI_BB||'bb';
 const run=(program,args,options={})=>{
   const result=spawnSync(program,args,{cwd:dir,encoding:'utf8',timeout:240000,...options});
@@ -34,6 +36,13 @@ try{
   assert.equal(draft.applied,false);
   assert.equal(draft.settings[0].required,false);
   console.log('１．架空学校の共通設定から点検・物理チェック項目を作成（設定の適用なし）。');
+
+  const workspace=join(dir,'workspace');
+  run(process.execPath,[workspaceScript,policyPath,workspace]);
+  assert.deepEqual(JSON.parse(await readFile(join(workspace,'school-policy.json'),'utf8')),policy);
+  assert.equal((await inspectStoragePath(workspace)).result,'basic-mode-ok');
+  assert.match(await readFile(join(workspace,'physical-checklist.txt'),'utf8'),/紙の書類と端末の施錠保管/);
+  console.log('　　作業フォルダーを作成し、所有者と基本権限を点検。物理点検表は自己確認用。');
 
   const prepared=prepareAgentDocument('青空祭は山田が準備します。','',policy);
   const gateway=prepared.gateway;
