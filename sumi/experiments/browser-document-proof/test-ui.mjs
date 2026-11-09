@@ -23,13 +23,21 @@ try {
   assert.equal(await page.locator('#create-status').innerText(),'証明を作成しました。公開条件を確認してください。');
   const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#save-proof').click()]);
   const proof = JSON.parse(await readFile(await download.path(),'utf8')); const expected = await page.locator('#statement').inputValue();
+  const [openingDownload] = await Promise.all([page.waitForEvent('download'), page.locator('#save-opening').click()]);
+  const opening = await readFile(await openingDownload.path(),'utf8'); const document = await page.locator('#document').inputValue();
   const verifier = await browser.newPage(); await verifier.goto(url);
   await verifier.locator('#proof-input').fill(JSON.stringify(proof)); await verifier.locator('#expected-input').fill(expected); await verifier.locator('#verify-button').click();
   await verifier.waitForFunction(() => {const e=document.querySelector('#verify-status'); return e.textContent.includes('検証しました') || e.classList.contains('error');},null,{timeout:180000});
   assert.equal(await verifier.locator('#verify-status').innerText(),'期待条件に対する証明を検証しました。');
+  await verifier.locator('#opening-document').fill(document); await verifier.locator('#opening-input').fill(opening); await verifier.locator('#opening-button').click();
+  await verifier.waitForFunction(() => document.querySelector('#opening-status').textContent.includes('一致しました'),null,{timeout:30000});
+  await verifier.locator('#opening-document').fill(document.replace('文化祭','体育祭')); await verifier.locator('#opening-button').click();
+  await verifier.waitForFunction(() => document.querySelector('#opening-status').classList.contains('error'),null,{timeout:30000});
+  assert.match(await verifier.locator('#opening-status').innerText(),/一致しません/);
   await verifier.locator('#expected-input').fill(JSON.stringify({...JSON.parse(expected),documentLength:2})); await verifier.locator('#verify-button').click();
   await verifier.waitForFunction(() => document.querySelector('#verify-status').classList.contains('error'),null,{timeout:30000});
+  assert.equal(await verifier.locator('#opening-button').isDisabled(),true);
   assert.match(await verifier.locator('#verify-status').innerText(),/期待条件と一致しません/);
   assert.deepEqual(errors,[]);
-  console.log('Separate browser pages: proof created and verified; changed expected conditions rejected.');
+  console.log('Separate browser pages: proof created and verified; changed expected conditions and document rejected; opening disabled after edits.');
 } finally { if (browser) await browser.close(); if (server) await new Promise(resolve=>server.close(resolve)); await rm(temp,{recursive:true,force:true}); }
