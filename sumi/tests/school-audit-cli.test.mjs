@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const root=fileURLToPath(new URL('../',import.meta.url));
@@ -29,5 +29,27 @@ test('自動実演は未確認と権限を点検し、一時ファイルを残�
     assert.match(demo.stdout,/保存先の所有者とアクセス権を管理者に確認/);
     assert.match(demo.stdout,/自己申告の未確認・未対応は残ります/);
     assert.deepEqual(await readdir(temp),[]);
+  }finally{await rm(temp,{recursive:true,force:true});}
+});
+test('学校別の共通設定を読み、不正な設定は点検に使わない',async()=>{
+  const temp=await mkdtemp(join(tmpdir(),'sumi-policy-test-'));
+  try{
+    const policy=JSON.parse(await readFile(join(root,'src/school-policy.example.json'),'utf8'));
+    policy.school='架空の別学校';
+    policy.assessment.controls[0].title='管理アカウントの二段階確認';
+    const path=join(temp,'policy.json');
+    await writeFile(path,JSON.stringify(policy));
+    const run=(...args)=>spawnSync(process.execPath,['scripts/school-audit.mjs','--policy',path,...args],{cwd:root,encoding:'utf8'});
+    const guide=run('guide');
+    assert.equal(guide.status,1);
+    assert.match(guide.stdout,/管理アカウントの二段階確認/);
+    const check=run('check','school-backend/observations.example.json');
+    assert.equal(check.status,2);
+    assert.equal(JSON.parse(check.stdout).results[0].title,'管理アカウントの二段階確認');
+    policy.documentProof.forbidden=['x'.repeat(17)];
+    await writeFile(path,JSON.stringify(policy));
+    const invalid=run('draft');
+    assert.equal(invalid.status,1);
+    assert.match(invalid.stderr,/共通学校ポリシーの形式が不正/);
   }finally{await rm(temp,{recursive:true,force:true});}
 });
