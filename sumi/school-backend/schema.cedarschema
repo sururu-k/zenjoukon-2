@@ -1,0 +1,14 @@
+namespace School {
+  entity User = { role: String, school: School };
+  entity School;
+  entity Document = { school: School, owner: User, classification: String };
+
+  @effect("read Document")
+  action "readDocument" appliesTo { principal: [User], resource: [Document] };
+  @effect("insert Document")
+  action "createDocument" appliesTo { principal: [User], resource: [Document] };
+  @effect("update Document(classification)")
+  action "classifyDocument" appliesTo { principal: [User], resource: [Document] };
+  @effect("delete Document")
+  action "deleteDocument" appliesTo { principal: [User], resource: [Document] };
+}
