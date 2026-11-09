@@ -14,6 +14,34 @@ SUMI_NARGO=/path/to/nargo SUMI_BB=/path/to/bb node scripts/noir-document-demo.mj
 
 証明入力と生成物は一時フォルダーで作り、終了後に削除します。デモは今回の実行時に生成した検証鍵を使います。実用の第三者検証には、回路と検証鍵の信頼できる配布、検証者が期待する禁止語・文書コミットメントの照合、提出文書との対応が必要です。回路やプロトコルは外部監査を受けていません。[Noir公式の証明・検証手順](https://noir-lang.org/docs/getting_started_manually)も参照してください。
 
+## 自分の文書で試す
+
+実験用の短いテキストファイルを用意し、次のように証明と開封情報を別々のファイルへ出力できます。環境変数には上記と同じバージョンの実行ファイルを指定します。出力先は新しいファイルを指定してください。
+
+```sh
+node scripts/noir-document.mjs prove example.txt 山田 proof.json opening.json
+```
+
+`proof.json` には証明と、公開される文書長・禁止語・コミットメントが入ります。`opening.json` のランダム値は非公開に保ってください。２つのファイルのうち、開封情報の保存に成功した後で証明の保存が失敗した場合は、開封情報だけが残ります。
+
+検証者は、期待する条件を信頼できる別経路で確認して、次の形式の `expected.json` を作ります。値は例です。証明ファイルの内容を無確認でコピーするだけでは、別の文書や禁止語の証明を見分けられません。
+
+```json
+{"documentLength": 24, "forbidden": "山田", "commitment": "64文字の16進数"}
+```
+
+```sh
+node scripts/noir-document.mjs verify proof.json expected.json
+```
+
+検証コマンドは証明ファイル内の公開条件を期待条件と比較し、**手元の回路から検証鍵を生成**して証明を確認します。その回路ソースやツール自体の真正性は別途確保してください。相手に文書と開封情報を渡す場合は、以下で文書の長さとコミットメントを照合できます。開封情報を渡した相手には、別途入手した候補文書との一致を試され得ます。
+
+```sh
+node scripts/noir-document.mjs open example.txt opening.json expected.json
+```
+
+`SUMI_NARGO` と `SUMI_BB` を設定して `node --test tests/noir-document-integration.test.mjs` を実行すると、証明・別コマンドでの検証・開封、および条件や文書の差し替え拒否を試せます。
+
 ## 別のローカル検査
 
 `src/secure/document-policy.js` は、文書と禁止語を端末内で照合し、一致がなければ文書のランダムな値付きハッシュとポリシーのハッシュを作ります。同じ文書でも毎回異なるランダム値を使います。文書とランダム値は非公開の証明入力として扱い、公開予定の部分には含めません。
