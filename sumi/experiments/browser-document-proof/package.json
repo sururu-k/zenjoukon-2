@@ -3,10 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {"test": "node test.mjs"},
+  "scripts": {
+    "test": "node test.mjs"
+  },
   "dependencies": {
     "@aztec-foundation/bb.js": "6.0.0",
+    "@noble/hashes": "2.4.0",
     "@noir-lang/noir_js": "1.0.0"
   },
-  "devDependencies": {"esbuild": "0.28.2", "playwright": "1.65.0"}
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.65.0"
+  }
 }
