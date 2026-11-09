@@ -1,0 +1,7 @@
+[package]
+name = "document_absence"
+type = "bin"
+authors = [""]
+compiler_version = ">=1.0.0"
+
+[dependencies]
