@@ -47,14 +47,22 @@ jobs:
         run: npm ci
       - name: Install pinned Lean toolchain
         timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          for attempt in 1 2 3; do
-            if timeout 180s elan toolchain install "$(cat formal/lean-toolchain)"; then
+          for attempt in 1 2; do
+            if timeout 90s elan toolchain install "$(cat formal/lean-toolchain)"; then
               exit 0
             fi
-            if [ "$attempt" -eq 3 ]; then exit 1; fi
             sleep 10
           done
+          # Fall back to the same official GitHub release if the mirror fails.
+          test "$(cat formal/lean-toolchain)" = 'leanprover/lean4:v4.34.1'
+          timeout 300s gh release download v4.34.1 --repo leanprover/lean4 --pattern lean-4.34.1-linux.tar.zst --dir "$RUNNER_TEMP" --clobber
+          echo "47bf4bbd78f70c2e9670598ab7124d92b6efb7330ff33e5fbb4030f6fd72e4e4  $RUNNER_TEMP/lean-4.34.1-linux.tar.zst" | sha256sum --check
+          tar --zstd -xf "$RUNNER_TEMP/lean-4.34.1-linux.tar.zst" -C "$RUNNER_TEMP"
+          elan toolchain link 'leanprover/lean4:v4.34.1' "$RUNNER_TEMP/lean-4.34.1-linux"
+          elan run 'leanprover/lean4:v4.34.1' lean --version
       - name: Test document processing and authorization
         run: npm test
       - name: Verify Lean model and build
