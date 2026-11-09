@@ -72,6 +72,16 @@ try{
   if(tampered.error)throw tampered.error;
   assert.ok(Number.isInteger(tampered.status)&&tampered.status!==0,'変更した公開条件が受理されました。');
   console.log('４．同じ証明に対して公開禁止語を変更すると、暗号検証は拒否。');
+  const unsafe=Buffer.from('青空祭は山田が準備します。'), unsafePadded=Buffer.alloc(512);
+  unsafe.copy(unsafePadded);
+  const unsafeCommitment=createHash('blake2s256').update(unsafePadded).update(salt).digest();
+  const unsafeInput={...input,document_bytes:[...unsafePadded],document_length:unsafe.length,commitment:[...unsafeCommitment]};
+  await writeFile(join(dir,'Prover.toml'),Object.entries(unsafeInput).map(([k,v])=>`${k} = ${JSON.stringify(v)}\n`).join(''));
+  const witness=spawnSync(nargo,['execute','unsafe'],{cwd:dir,encoding:'utf8',timeout:240000});
+  if(witness.error)throw witness.error;
+  assert.ok(Number.isInteger(witness.status)&&witness.status!==0,'禁止語を含む文書が受理されました。');
+  assert.match(witness.stdout+witness.stderr,/assert|constraint/i,'回路の条件違反以外で失敗しました。');
+  console.log('５．禁止語が残る文書では、文書に合わせたコミットメントでも回路の証明入力を拒否。');
   console.log('注意：指定語の完全一致のみが対象。形式検査は設定の発行元を認証せず、学校全体の安全を証明しません。');
 }finally{
   await rm(dir,{recursive:true,force:true});
