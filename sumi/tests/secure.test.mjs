@@ -22,6 +22,11 @@ test('MPCは2者が独立に合算し、学校別のシェアを開かず統合�
   const r=combinePartyTotals(a,b);assert.equal(r.sum,220);assert.equal(r.count,4);assert.equal(r.mean,55);assert.equal(r.contributors,2);assert.ok(!('values' in x.A));assert.notEqual(x.A.share,splitContribution([30,90],'campaign-test').A.share);
   await assert.rejects(aggregateParty([x.A,x.A],'A'));await assert.rejects(aggregateParty([x.A,y.B],'A'));await assert.rejects(aggregateParty([x.A],'A'));assert.throws(()=>combinePartyTotals(a,{...b,campaign:'wrong-test'}));assert.throws(()=>combinePartyTotals(a,{...b,batchDigest:'a'.repeat(64)}));assert.throws(()=>combinePartyTotals(a,{...b,share:'-1'}));
 });
+test('MPCの提出数はファイル組数であり、異なる学校数を認証しない',async()=>{
+  const one=splitContribution([30,90],'campaign-test'),another=splitContribution([30,90],'campaign-test');
+  const a=await aggregateParty([one.A,another.A],'A'),b=await aggregateParty([one.B,another.B],'B');
+  const result=combinePartyTotals(a,b);assert.equal(result.contributors,2);assert.equal(result.sum,240);
+});
 test('ランダム化回答は全8条件で正答率3/4、置換隣接の確率比は3以下になる',()=>{
   for(const output of [false,true]){
     const p=[false,true].map(bit=>[0,1,2,3].filter(draw=>randomizedResponse(bit,draw)===output).length/4);

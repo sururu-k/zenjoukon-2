@@ -36,18 +36,18 @@ async function main(){
   if(command==='aggregate'&&args.length>=4){
     const [party,output,...paths]=args;
     if(!['A','B'].includes(party)||paths.length>100)throw new Error(usage);
-    stdout.write(`${party}担当者のファイルを ${paths.length} 校分合算します。同じ集計IDと担当者のファイルが必要です。\n`);
+    stdout.write(`${party}担当者のファイルを ${paths.length} 組合算します。同じ集計IDと担当者のファイルが必要です。\n`);
     const password=await secret(`${party}用パスフレーズ：`),envelopes=[];
     for(const path of paths)envelopes.push(await readJson(path,3000000));
     const result=await sealPartyTotal(envelopes,party,password);await save(output,result);
     stdout.write('合算した暗号化ファイルを保存しました。\n');return;
   }
   if(command==='combine'&&args.length===2){
-    stdout.write('両担当者の合算値を復元します。結果には件数・学校数・合計・平均が含まれます。\n');
+    stdout.write('両担当者の合算値を復元します。結果には回答件数・提出組数・合計・平均が含まれます。\n');
     const a=await secret('A用パスフレーズ：'),b=await secret('B用パスフレーズ：');
     const result=await openCombinedTotal(await readJson(args[0],3000000),a,await readJson(args[1],3000000),b);
-    stdout.write(`学校数：${result.contributors} / 件数：${result.count} / 合計：${result.sum} / 平均：${result.mean}\n`);
-    stdout.write('少人数や複数回の集計は、元の値の推測につながる場合があります。\n');return;
+    stdout.write(`提出組数：${result.contributors} / 件数：${result.count} / 合計：${result.sum} / 平均：${result.mean}\n`);
+    stdout.write('提出元の学校の数や身元は確認していません。少人数や複数回の集計は、元の値の推測につながる場合があります。\n');return;
   }
   throw new Error(usage);
 }

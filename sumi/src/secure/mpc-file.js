@@ -13,7 +13,7 @@ export async function sealSchoolContributions(values,campaign,passwordA,password
   return {A:await encryptDraft(wrap(split.A),passwordA),B:await encryptDraft(wrap(split.B),passwordB)};
 }
 export async function sealPartyTotal(envelopes,party,password){
-  if(!Array.isArray(envelopes)||envelopes.length<2||envelopes.length>100)throw new Error('２〜100校のファイルが必要です。');
+  if(!Array.isArray(envelopes)||envelopes.length<2||envelopes.length>100)throw new Error('２〜100組のファイルが必要です。');
   const packets=[];for(const envelope of envelopes)packets.push(await unwrap(envelope,password));
   const total=await aggregateParty(packets,party);
   return encryptDraft(wrap(total),password);
