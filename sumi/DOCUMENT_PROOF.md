@@ -2,6 +2,24 @@
 
 学校の文書を提出するとき、原文を第三者に渡さず、合意した禁止語が原文に含まれないことを示す仕組みを目指します。検査対象は指定された文字列との完全一致です。個人情報一般の不在や、意味の同じ別表現まで検出できるという主張ではありません。
 
+## 複数語の実験版
+
+`noir/document_absence_v2` と `scripts/noir-document-v2.mjs` は、512バイト以内の文書と、各16バイト以内の禁止語１〜４語を扱う別形式です。文書の長さ・禁止語とその個数・文書コミットメントは公開されます。元の文書とランダム値は証明に含めません。v1とはコミットメント・証明・開封情報の形式が異なり、互換性はありません。
+
+例えば `policy.json` に `{"forbidden":["山田","佐藤","電話番号","内部資料"]}` を保存し、Noir 1.0.0とBarretenberg 6.0.0の場所を環境変数 `SUMI_NARGO`、`SUMI_BB` に設定したうえで実行します。
+
+```sh
+node scripts/noir-document-v2.mjs prove example.txt policy.json proof-v2.json opening-v2.json
+node scripts/noir-document-v2.mjs verify proof-v2.json expected-v2.json
+node scripts/noir-document-v2.mjs open example.txt opening-v2.json expected-v2.json
+```
+
+`opening-v2.json` は非公開です。検証者が別経路で確認する `expected-v2.json` は `documentLength`（UTF-8バイト数）、`forbidden`（順序を含む配列）、`commitment`（64文字の16進数）を持ちます。証明に添付された条件を無確認で受け入れてはいけません。検証鍵は検証者の手元の回路から生成しますが、その回路とツールの真正性の確認は別途必要です。
+
+`node scripts/noir-document-v2-demo.mjs` は架空文書で４語の証明を生成・検証し、禁止語の混入・末尾での一致・コミットメントの改変を試します。`node --test tests/noir-document-v2-integration.test.mjs` は利用者向けコマンドも試します。両方とも `SUMI_NARGO` と `SUMI_BB` が必要です。１端末での１回の測定では、４語の回路の証明生成に約3.5秒かかりました。環境により変わります。
+
+文字列はバイトの完全一致で、表記ゆれ・Unicode正規化・PDF解析・画像中の文字には対応していません。短い文書の実験であり、回路や暗号プロトコルは外部監査を受けていません。実際の学校データでの安全性を示すものではありません。
+
 ## ゼロ知識証明の実験
 
 `noir/document_absence` に、別形式の小さな証明回路を追加しました。架空の文書（UTF-8で128バイト以内）に、公開された１つの禁止語（同８バイト以内）が完全一致で含まれないことを対象にします。文書とランダム値は非公開入力、文書のバイト数・禁止語・禁止語の長さ・文書コミットメントは公開入力です。公開された文書の長さや禁止語は隠れません。
