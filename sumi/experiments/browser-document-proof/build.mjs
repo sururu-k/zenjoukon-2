@@ -15,6 +15,7 @@ try {
   await cp(join(here, 'public'), output, {recursive:true});
   await copyFile(join(temp, 'target/document_absence_v2.json'), join(output, 'circuit.json'));
   await copyFile(join(here, '../../src/school-policy.example.json'), join(output, 'school-policy.example.json'));
+  await copyFile(join(here, '../../src/school-policy-contract.js'), join(output, 'school-policy-contract.js'));
   for (const [pkg, name] of [['acvm_js','acvm_js_bg.wasm'],['noirc_abi','noirc_abi_wasm_bg.wasm']]) {
     const {readdir} = await import('node:fs/promises');
     async function find(dir) { for (const e of await readdir(dir, {withFileTypes:true})) { const p = join(dir,e.name); if (e.isFile() && e.name === name) return p; if (e.isDirectory()) { const found = await find(p); if (found) return found; } } }
