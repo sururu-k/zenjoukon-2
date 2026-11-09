@@ -17,6 +17,17 @@ test('追加の非公開語句が上限を超える場合は黙って無視せ�
   assert.throws(()=>prepareAgentDocument('架空の文書','x'.repeat(101)));
   assert.ok(!prepareAgentDocument('内部限定の計画','内部限定').preview.includes('内部限定'));
 });
+test('差し替えた文書も加工し、前の確認を失効する',async()=>{
+  const doc=prepareAgentDocument('最初の連絡','内部限定');const gateway=doc.gateway;
+  gateway.approveDocument(gateway.revision);
+  gateway.replaceDocument('内部限定の連絡先：other@example.test');
+  assert.ok(!doc.preview.includes('内部限定'));assert.ok(!doc.preview.includes('other@example.test'));
+  const request={action:'read',resource:'approved-document',revision:gateway.revision};
+  assert.equal((await gateway.agent.execute(request)).status,'denied');
+  gateway.approveDocument(request.revision);
+  assert.equal((await gateway.agent.execute(request)).value,doc.preview);
+  const savedRevision=gateway.revision;assert.throws(()=>gateway.replaceDocument(''));assert.equal(gateway.revision,savedRevision);
+});
 
 test('エージェントの実行条件は未指定や真偽値以外を許可しない',()=>{
   const all={fresh:true,approved:true,allowed:true,target:true,supported:true};
