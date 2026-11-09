@@ -1,0 +1,22 @@
+{
+  "description": "架空データを使う検出上の探索例。一般的な精度の推定には使えません。",
+  "cases": [
+    {"id":"email_ascii","category":"メール","text":"連絡先は alice@example.test です。","secret":"alice@example.test"},
+    {"id":"email_labeled_unicode","category":"メール","text":"メール：やまだ@example.test","secret":"やまだ@example.test"},
+    {"id":"phone_hyphen","category":"電話","text":"連絡先：090-1234-5678","secret":"090-1234-5678"},
+    {"id":"phone_fullwidth","category":"電話","text":"連絡先：０９０－１２３４－５６７８","secret":"０９０－１２３４－５６７８"},
+    {"id":"name_labeled","category":"氏名","text":"氏名：架空花子、連絡事項があります。","secret":"架空花子"},
+    {"id":"name_unlabeled","category":"氏名","text":"架空花子さんが参加します。","secret":"架空花子"},
+    {"id":"school_labeled","category":"学校","text":"学校：架空さくら高等学校","secret":"架空さくら高等学校"},
+    {"id":"school_class","category":"学級","text":"対象は2年3組です。","secret":"2年3組"},
+    {"id":"address_labeled","category":"住所","text":"住所：愛知県豊田市1丁目2番地","secret":"愛知県豊田市1丁目2番地"},
+    {"id":"health_unlabeled","category":"健康情報","text":"架空の生徒はぜんそくの薬を持っています。","secret":"ぜんそく"},
+    {"id":"student_id","category":"識別番号","text":"生徒番号 A-4827 を確認しました。","secret":"A-4827"},
+    {"id":"family_situation","category":"家庭事情","text":"架空の生徒はひとり親家庭です。","secret":"ひとり親家庭"},
+    {"id":"custom_term","category":"指定語句","text":"未公開企画スイセンを準備中です。","secret":"未公開企画スイセン","hiddenWords":"未公開企画スイセン"},
+    {"id":"custom_overlap","category":"重複","text":"連絡先 alice@example.test","secret":"alice@example.test","hiddenWords":"alice"},
+    {"id":"public_notice","category":"対照","text":"作品発表会は来月開催します。","unchanged":true},
+    {"id":"public_activity","category":"対照","text":"展示と体験会を行いました。","unchanged":true},
+    {"id":"public_count","category":"対照","text":"参加者は40人でした。","unchanged":true}
+  ]
+}
