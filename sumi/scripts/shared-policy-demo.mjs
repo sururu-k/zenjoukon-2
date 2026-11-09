@@ -65,6 +65,13 @@ try{
   assert.deepEqual(await readFile(join(dir,'target/out/public_inputs')),expected);
   run(bb,['verify','-t','noir-recursive','-p','target/out/proof','-k','target/out/vk','-i','target/out/public_inputs']);
   console.log('３．同じ禁止語を公開条件とし、加工した文書の不在証明を生成・検証。');
+  const altered=Buffer.from(expected);
+  altered[63]^=1; // Modify one byte of the first public forbidden term.
+  await writeFile(join(dir,'target/out/altered-inputs'),altered);
+  const tampered=spawnSync(bb,['verify','-t','noir-recursive','-p','target/out/proof','-k','target/out/vk','-i','target/out/altered-inputs'],{cwd:dir,encoding:'utf8',timeout:240000});
+  if(tampered.error)throw tampered.error;
+  assert.ok(Number.isInteger(tampered.status)&&tampered.status!==0,'変更した公開条件が受理されました。');
+  console.log('４．同じ証明に対して公開禁止語を変更すると、暗号検証は拒否。');
   console.log('注意：指定語の完全一致のみが対象。形式検査は設定の発行元を認証せず、学校全体の安全を証明しません。');
 }finally{
   await rm(dir,{recursive:true,force:true});
