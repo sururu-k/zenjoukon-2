@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { stdin, stdout } from 'node:process';
 import { SCHOOL_POLICY, assessSchoolPolicy, generateConfigurationDraft } from '../src/school-policy.js';
+import { inspectStoragePath } from './storage-inspection.mjs';
 
 const [command, file, extra]=process.argv.slice(2);
 async function walkthrough(){
@@ -28,8 +29,13 @@ async function walkthrough(){
   if(!report.complete)process.exitCode=2;
 }
 try {
-  if(extra||!['check','draft','guide'].includes(command)||command==='check'&&!file||command!=='check'&&file)throw new Error('使い方: node scripts/school-audit.mjs guide | check <確認結果.json> | draft');
+  if(extra||!['check','draft','guide','inspect-path'].includes(command)||['check','inspect-path'].includes(command)&&!file||!['check','inspect-path'].includes(command)&&file)throw new Error('使い方: node scripts/school-audit.mjs guide | check <確認結果.json> | draft | inspect-path <保存先>');
   if(command==='guide')await walkthrough();
+  else if(command==='inspect-path'){
+    const output=await inspectStoragePath(file);
+    process.stdout.write(JSON.stringify(output,null,2)+'\n');
+    if(output.result!=='basic-mode-ok')process.exitCode=2;
+  }
   else{
     const output=command==='draft'?generateConfigurationDraft(SCHOOL_POLICY):assessSchoolPolicy(SCHOOL_POLICY,JSON.parse(await readFile(file,'utf8')));
     process.stdout.write(JSON.stringify(output,null,2)+'\n');

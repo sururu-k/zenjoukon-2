@@ -8,10 +8,13 @@ Nyxisの構造を、学校の文書・役割・所属・許可操作に対応づ
 node scripts/school-audit.mjs guide
 node scripts/school-audit.mjs draft
 node scripts/school-audit.mjs check school-backend/observations.example.json
+node scripts/school-audit.mjs inspect-path <保存先>
 node scripts/products-demo.mjs
 ```
 
 `guide` は各項目の目的を表示し、確認済み・未対応・分からないを順番に尋ねます。`draft` は設定案と物理チェックリストをJSONで出力します。`check` は報告された値を判定し、未確認または不適合がある場合は終了コード2を返します。いずれも設定の適用や実環境の自動収集は行いません。点検結果は入力した人の自己申告であり、実際の設定や漏洩の不在を証明するものではありません。
+
+`inspect-path` は指定したファイル・フォルダーの所有者とPOSIX権限を実際に読み取る別の点検です。現在のユーザーが所有し、グループとその他に権限がない場合に `basic-mode-ok`、それ以外は `review-needed` とし終了コード2を返します。シンボリックリンクは拒否します。ACL、親フォルダー、管理者や同一ユーザーの別プロセス、ネットワークストレージの実効権限、点検後の変更は確認せず、安全性の証明や５項目の自己申告の代替ではありません。設定は変更しません。
 
 `products-demo.mjs` は架空データを使い、Writeの文書作成、Gateの加工、Proveの合計証明をブラウザなしで実行します。3製品の書き出し判定には同じ `sumi-egress-v1` の認可ルールを使い、未確認の書き出しを拒否します。学校向け5項目の点検は別の共通モデルであり、現時点ではこの認可ルールに結び付いていません。デモは実データの保存や配布を行いません。
 
