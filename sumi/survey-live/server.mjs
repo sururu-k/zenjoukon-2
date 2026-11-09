@@ -6,7 +6,8 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createSurveyCollector } from '../src/secure/survey.js';
+import { build } from 'esbuild';
+import { createVerifiedSurveyCollector } from '../src/secure/verified-survey.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const PORTS = { web: Number(process.env.LIVE_WEB_PORT || 4190), A: Number(process.env.LIVE_A_PORT || 4191), B: Number(process.env.LIVE_B_PORT || 4192) };
@@ -25,7 +26,7 @@ async function readBody(req) {
 }
 
 export function startCollector(party, port) {
-  const collector = createSurveyCollector(party, CAMPAIGN);
+  const collector = createVerifiedSurveyCollector(party, CAMPAIGN);
   let held = []; // この担当が実際に保管しているもの。乱数にしか見えないことを画面で示すために公開する。
   const server = createServer(async (req, res) => {
     try {
@@ -33,8 +34,8 @@ export function startCollector(party, port) {
       const path = new URL(req.url, 'http://x').pathname;
       if (req.method === 'POST' && path === '/share') {
         const packet = await readBody(req);
-        const count = collector.receive(packet);
-        held.push({ batch: packet.batch, share: packet.share });
+        const count = await collector.receive(packet);
+        held.push({ batch: packet.batch, share: packet.value });
         return json(res, 200, { count });
       }
       if (req.method === 'GET' && path === '/status') return json(res, 200, { party, count: collector.count, phase: collector.phase });
@@ -52,10 +53,13 @@ export function startCollector(party, port) {
   return new Promise((ok) => server.listen(port, '127.0.0.1', () => ok(server)));
 }
 
-export function startWeb(port) {
+export async function startWeb(port) {
+  const bundle=await build({entryPoints:['vote.js','organizer.js'].map(name=>resolve(ROOT,'survey-live/public',name)),bundle:true,format:'esm',platform:'browser',target:'es2022',write:false,outdir:'survey-live-bundle',external:['module','node:module','node:fs','node:fs/promises','node:url','node:path','node:crypto']});
+  const modules=new Map(bundle.outputFiles.map(file=>['/'+file.path.split('/').pop(),file.contents]));
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, 'http://x').pathname;
+      if(modules.has(url)){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'});res.end(modules.get(url));return;}
       const base = url.startsWith('/src/') ? resolve(ROOT, 'src') : resolve(ROOT, 'survey-live/public');
       const rel = url.startsWith('/src/') ? url.slice(5) : (url === '/' ? 'vote.html' : url.slice(1));
       const file = resolve(base, rel);

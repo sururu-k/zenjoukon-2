@@ -1,6 +1,7 @@
+import { combineVerifiedSurveyTotals } from '../../src/secure/verified-survey.js';
 const $ = (id) => document.getElementById(id);
 const A = 'http://127.0.0.1:4191', B = 'http://127.0.0.1:4192';
-const P = (1n << 61n) - 1n;
+const Q = (1n << 252n) + 27742317777372353535851937790883648493n;
 const get = async (url) => (await fetch(url)).json();
 const post = async (url) => { const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; };
 let phase = 'open';
@@ -17,9 +18,7 @@ $('publish').addEventListener('click', async () => {
   $('publish').disabled = true;
   try {
     const [a, b] = await Promise.all([post(A + '/publish'), post(B + '/publish')]);
-    if (a.count !== b.count || a.batchDigest !== b.batchDigest) throw new Error('A・Bの集計が一致しません。');
-    const yes = Number((BigInt(a.share) + BigInt(b.share)) % P);
-    if (yes > a.count) throw new Error('集計値が範囲外です。');
+    const {yes}=combineVerifiedSurveyTotals(a,b);
     $('yesN').textContent = `${yes}件`; $('noN').textContent = `${a.count - yes}件`;
     $('results').hidden = false;
     requestAnimationFrame(() => { $('yesBar').style.width = `${yes / a.count * 100}%`; $('noBar').style.width = `${(a.count - yes) / a.count * 100}%`; });
@@ -34,7 +33,7 @@ $('peek').addEventListener('click', async () => {
 $('collude').addEventListener('click', async () => {
   const [a, b] = await Promise.all([get(A + '/held'), get(B + '/held')]);
   const index = new Map(b.held.map((x) => [x.batch, x.share]));
-  const answers = a.held.filter((x) => index.has(x.batch)).map((x) => Number((BigInt(x.share) + BigInt(index.get(x.batch))) % P) === 1 ? '開' : '今');
+  const answers = a.held.filter((x) => index.has(x.batch)).map((x) => (BigInt('0x'+x.share) + BigInt('0x'+index.get(x.batch))) % Q === 1n ? '開' : '今');
   $('collusion').textContent = `両方を合わせると提出ごとの中身を復元できます：${answers.join(' ')}（回答データに名前は含めていません）`;
   $('collusion').hidden = false;
 });

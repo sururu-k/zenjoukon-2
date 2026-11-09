@@ -1,4 +1,4 @@
-import { splitContribution } from '/src/secure/mpc.js';
+import { createVerifiedSurveyBallot } from '../../src/secure/verified-survey.js';
 const $ = (id) => document.getElementById(id);
 const CAMPAIGN = 'sumi-survey-live';
 const endpoints = { A: 'http://127.0.0.1:4191/share', B: 'http://127.0.0.1:4192/share' };
@@ -11,8 +11,8 @@ const post = async (url, body) => {
 async function vote(answer) {
   $('yes').disabled = $('no').disabled = true;
   try {
-    const { A, B } = splitContribution([answer ? 1 : 0], CAMPAIGN);
-    $('shareA').textContent = A.share; $('shareB').textContent = B.share;
+    const { A, B } = await createVerifiedSurveyBallot(answer, CAMPAIGN);
+    $('shareA').textContent = A.value; $('shareB').textContent = B.value;
     await Promise.all([post(endpoints.A, A), post(endpoints.B, B)]);
     $('status').textContent = '回答しました。ありがとう！（この画面に答えは残しません）';
     setTimeout(() => { $('yes').disabled = $('no').disabled = false; $('status').textContent = ''; }, 1200);
