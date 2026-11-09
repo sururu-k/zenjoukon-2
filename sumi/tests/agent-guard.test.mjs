@@ -12,6 +12,11 @@ test('エージェントへ渡す前に自動加工し、加工版への確認�
   prepared.gateway.approveDocument(request.revision);
   const result=await prepared.gateway.agent.execute(request);assert.equal(result.value,prepared.preview);assert.ok(!result.value.includes(secret));
 });
+test('追加の非公開語句が上限を超える場合は黙って無視せず拒否する',()=>{
+  assert.throws(()=>prepareAgentDocument('架空の文書','x\n'.repeat(101)));
+  assert.throws(()=>prepareAgentDocument('架空の文書','x'.repeat(101)));
+  assert.ok(!prepareAgentDocument('内部限定の計画','内部限定').preview.includes('内部限定'));
+});
 
 test('エージェントの実行条件は未指定や真偽値以外を許可しない',()=>{
   const all={fresh:true,approved:true,allowed:true,target:true,supported:true};

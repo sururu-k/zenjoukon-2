@@ -11,6 +11,7 @@ node scripts/sumi.mjs verify-share /tmp/sumi-gate.json
 node scripts/sumi.mjs prove examples/prove.json /tmp/sumi-proof.json
 node scripts/sumi.mjs verify /tmp/sumi-proof.json
 node scripts/school-agent.mjs examples/gate.txt summarize
+node scripts/school-agent.mjs examples/gate.txt summarize --hide-file examples/hidden-words.txt
 node scripts/school-agent.mjs examples/gate.txt send
 node scripts/school-agent.mjs examples/gate.txt summarize-ai <インストール済みのモデル名>
 ```
@@ -22,5 +23,7 @@ Write は文書の題名・種類・本文用メモから文書を作り、Gate 
 ３製品は `sumi-egress-v1` の同じ出力認可を使います。学校向け点検の共通５項目は `node scripts/school-audit.mjs guide` で、理由を読みながら点検できます。設定案は `node scripts/school-audit.mjs draft` で表示します。点検は出力認可とは別の自己申告モデルで、実環境を自動で調べたり設定を適用したりはしません。
 
 `school-agent.mjs` は指定したテキストからメールアドレスなどの候補を自動で加工し、エージェントに渡す全文を表示します。`summarize` は固定処理で先頭３文を抽出します。`summarize-ai` は確認を受けた加工版をローカルの Ollama に送り、AIによる要約案を表示します。Ollama の起動とモデルの準備は別途必要です。加工の検出漏れやAIの誤りがあり得るため、加工版と要約案を人が確認してください。`send` は拒否し、通信処理はありません。AIを使う場合、Ollamaやモデル自体の外部通信はこのプログラムでは制御できません。
+
+自動検出に加えて隠したい語句がある場合は、１行に１語ずつ書いたテキストファイルを `--hide-file` で指定できます。最大100語、１語100文字以内です。語句一覧そのものにも機密が含まれ得るため、保存先の管理が必要です。
 
 この端末版は、実際のファイルを扱える試作です。ログイン、複数利用者の権限管理、組織の設定を自動収集・適用する機能、OSや他のアプリの操作を強制する機能はありません。実際の個人情報の運用に投入する前に、設計と環境の検証が必要です。

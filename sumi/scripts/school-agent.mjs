@@ -6,12 +6,17 @@ import { prepareAgentDocument } from '../src/agent-document.js';
 import { createAgentAssistant } from '../src/agent-assistant.js';
 import { createAgentLocalTransport } from './agent-local-transport.mjs';
 
-const [path, action, model, ...extra]=process.argv.slice(2);
-const usage='使い方: node scripts/school-agent.mjs <文書.txt> <read|summarize|send> | <文書.txt> summarize-ai <ローカルモデル名>';
+const [path, action, ...args]=process.argv.slice(2);
+const usage='使い方: node scripts/school-agent.mjs <文書.txt> <read|summarize|send> [--hide-file <語句.txt>] | <文書.txt> summarize-ai <ローカルモデル名> [--hide-file <語句.txt>]';
 async function main(){
-  if(!path||!['read','summarize','summarize-ai','send'].includes(action)||extra.length||(action==='summarize-ai'?!model:!!model))throw new Error(usage);
+  if(!path||!['read','summarize','summarize-ai','send'].includes(action))throw new Error(usage);
+  const remaining=[...args],model=action==='summarize-ai'?remaining.shift():undefined;
+  if(action==='summarize-ai'&&(!model||model.startsWith('--')))throw new Error(usage);
+  let hiddenFile;
+  if(remaining.length){if(remaining.length!==2||remaining[0]!=='--hide-file'||!remaining[1])throw new Error(usage);hiddenFile=remaining[1];}
   const text=await readFile(path,'utf8');
-  const {gateway,preview,maskedCount}=prepareAgentDocument(text);
+  const hiddenWords=hiddenFile?await readFile(hiddenFile,'utf8'):'';
+  const {gateway,preview,maskedCount}=prepareAgentDocument(text,hiddenWords);
   const proposal={action:action==='summarize-ai'?'read':action,resource:action==='send'?'external-service':'approved-document',revision:gateway.revision};
   const before=await gateway.agent.execute(proposal);
   if(before.status!=='denied')throw new Error('確認前の操作が拒否されませんでした。');

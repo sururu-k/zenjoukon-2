@@ -11,3 +11,8 @@ test('実ファイルを確認してからエージェント処理を行い、�
   const send=run('send');assert.equal(send.status,2);assert.match(send.stdout,/通信は行っていません/);assert.doesNotMatch(send.stdout,/操作結果：/);
   assert.equal(run('arbitrary').status,1);
 });
+test('指定された語句も確認前に加工する',()=>{
+  const result=spawnSync(process.execPath,['scripts/school-agent.mjs','examples/gate.txt','read','--hide-file','examples/hidden-words.txt'],{cwd:root,input:'yes\n',encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/\[非公開\]/);assert.doesNotMatch(result.stdout,/地域交流会/);
+  const bad=spawnSync(process.execPath,['scripts/school-agent.mjs','examples/gate.txt','read','--hide-file'],{cwd:root,input:'yes\n',encoding:'utf8'});assert.equal(bad.status,1);
+});
