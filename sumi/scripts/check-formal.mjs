@@ -6,7 +6,7 @@ import { channelFor, CHANNELS } from '../src/information-flow.js';
 import { canExecuteAgent } from '../src/agent-access.js';
 
 export const THEOREMS=Object.freeze(['unknown_denied','stale_denied','unregistered_denied','plaintext_requires_public_review','draft_requires_encryption','inference_requires_local_consent','denied_emits_nothing','plaintext_depends_only_on_release','external_plaintext_noninterference','trace_plaintext_noninterference','only_approved_plaintext'].map(n=>'Sumi.'+n));
-const AGENT_THEOREMS=Object.freeze(['fresh','approval','policy','target','supported'].map(n=>'SumiAgent.execute_requires_'+n));
+export const AGENT_THEOREMS=Object.freeze(['fresh','approval','policy','target','supported'].map(n=>'SumiAgent.execute_requires_'+n));
 
 // Leanで検査した定義を全入力で評価し、実際に使うJS判定との有限領域での一致を検査する。
 export function checkFormal(){
