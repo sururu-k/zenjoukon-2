@@ -11,7 +11,11 @@ const [command,...args]=process.argv.slice(2);
 const fail=message=>{throw new Error(message);};
 const readSmall=async(path,max)=>{const s=await stat(path);if(!s.isFile()||s.size>max)fail('入力ファイルの種類またはサイズが不正です。');return readFile(path);};
 const readDocument=async(path)=>{const bytes=await readSmall(path,512);try{new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{fail('文書は正しいUTF-8で指定してください。');}return bytes;};
-const parseJson=async(path)=>JSON.parse((await readSmall(path,1000000)).toString('utf8'));
+const parseJson=async(path)=>{
+  const bytes=await readSmall(path,1000000);let text;
+  try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{fail('JSONは正しいUTF-8で指定してください。');}
+  return JSON.parse(text);
+};
 const hex=s=>typeof s==='string'&&/^[a-f0-9]{64}$/.test(s);
 const fields=values=>Buffer.concat(values.map(value=>{const f=Buffer.alloc(32);f.writeUInt32BE(value,28);return f;}));
 function publicInputs(statement){

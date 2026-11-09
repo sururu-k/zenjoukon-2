@@ -14,7 +14,10 @@ const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application
 async function readJson(req){
   let size=0;const chunks=[];
   for await(const chunk of req){size+=chunk.length;if(size>200000)throw new Error('入力が大きすぎます。');chunks.push(chunk);}
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  let text;
+  try{text=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));}
+  catch{throw new Error('入力は正しいUTF-8で指定してください。');}
+  return JSON.parse(text);
 }
 async function runProof(body,mode){
   const dir=await mkdtemp(join(tmpdir(),'sumi-document-live-'));
