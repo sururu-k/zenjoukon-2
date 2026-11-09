@@ -21,7 +21,7 @@ async function main(){
     const checklist=['物理面の点検（自己確認用）','',...physical.flatMap(c=>[`[ ] ${c.title}`,`    目的：${c.purpose}`,''])].join('\n');
     await writeFile(join(target,'physical-checklist.txt'),checklist,{flag:'wx',mode:0o600});
     const guidance=['架空データ用の作業場所','incoming: 受け取った文書','reviewed: 人が確認した文書','output: 共有する文書','',
-      'フォルダー間の移動や確認は自動ではありません。ポリシーを強制する仕組みではありません。',
+      'フォルダー間の移動や確認は自動ではありません。専用コマンド以外の操作は制御されません。',
       '所有者・基本権限以外にACL、親フォルダー、OS、同じ利用者の他のプロセスにも依存します。実際の個人情報は扱わないでください。',''].join('\n');
     await writeFile(join(target,'README.txt'),guidance,{flag:'wx',mode:0o600});
   }catch(error){
