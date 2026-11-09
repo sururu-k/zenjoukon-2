@@ -22,3 +22,12 @@ test('文書変更後のAI応答、遠隔モデル、余分な応答フィール
     await assert.rejects(createAgentAssistant(gateway,transport).summarize({endpoint:'http://127.0.0.1:11434',model:'local:test',revision,consented:true}));
   }
 });
+
+
+test('共通設定の語句は通常の検出が拾わない文でもAI送信前に伏せる',async()=>{
+  const secret='山田';const prepared=prepareAgentDocument(`文化祭は${secret}が準備します。`),gateway=prepared.gateway,calls=[];
+  assert.ok(!prepared.preview.includes(secret));gateway.approveDocument(gateway.revision);
+  const transport=createAgentLocalTransport(gateway,async(url,options)=>{calls.push(JSON.parse(options.body));return {ok:true,json:async()=>url.endsWith('/api/show')?{model_info:{architecture:'test'}}:{response:'{"summary":"準備の連絡です。"}'}};});
+  await createAgentAssistant(gateway,transport).summarize({endpoint:'http://127.0.0.1:11434',model:'local:test',revision:gateway.revision,consented:true});
+  assert.equal(calls.length,2);assert.ok(!JSON.stringify(calls).includes(secret));assert.ok(JSON.stringify(calls).includes('[非公開]'));
+});
