@@ -14,7 +14,19 @@ export function prepareAgentDocument(source,hiddenWords='',schoolPolicy=defaultS
   if(words.length>100||words.some(word=>word.length>100))throw new Error('追加で隠す語句は100個以内、１語100文字以内で指定してください。');
   const combined = [...new Set([...commonTerms, ...words])];
   if(combined.length>100||combined.join('\n').length>10000)throw new Error('共通ポリシーを含む非公開語句は100個・合計10,000文字以内で指定してください。');
-  const prepare=text=>prepareDocument(text,combined.join('\n')).result;
+  const prepare=text=>{
+    const result=prepareDocument(text,combined.join('\n')).result;
+    // A type label can itself contain a forbidden term, such as 電話番号.
+    // Use the generic label in that case, then check the entire output.
+    let output=result.text;
+    for(const label of ['[メール非公開]','[電話番号非公開]','[カード番号非公開]']){
+      if(combined.some(word=>label.includes(word)))output=output.replaceAll(label,'[非公開]');
+    }
+    // Replacement labels can themselves contain a forbidden term. Do not
+    // create or update the gateway if any explicitly forbidden text remains.
+    if(combined.some(word=>output.includes(word)))throw new Error('加工後も指定語が残るため、エージェントへ渡せません。指定語と文書を見直してください。');
+    return {...result,text:output};
+  };
   let current=prepare(source);
   const inner=createAgentGateway(current.text);
   const gateway=Object.freeze({

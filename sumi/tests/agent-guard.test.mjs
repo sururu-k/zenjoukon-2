@@ -18,6 +18,17 @@ test('追加の非公開語句が上限を超える場合は黙って無視せ�
   assert.ok(!prepareAgentDocument('内部限定の計画','内部限定').preview.includes('内部限定'));
   assert.throws(()=>prepareAgentDocument('架空の文書',Array.from({length:98},(_,i)=>`独自${i}`).join('\n')),/共通ポリシー/);
 });
+test('伏せ字そのものに指定語が残る場合は引き渡さない',()=>{
+  const phone=prepareAgentDocument('連絡先：090-1234-5678');
+  assert.ok(!phone.preview.includes('090-1234-5678'));
+  assert.ok(!phone.preview.includes('電話番号'));
+  assert.throws(()=>prepareAgentDocument('非公開の予定','非公開'),/加工後も指定語が残る/);
+  const prepared=prepareAgentDocument('行事の予定','非公開');
+  const revision=prepared.gateway.revision;
+  assert.throws(()=>prepared.gateway.replaceDocument('非公開の予定'),/加工後も指定語が残る/);
+  assert.equal(prepared.gateway.revision,revision);
+  assert.equal(prepared.preview,'行事の予定');
+});
 test('重なって出現する指定語を含む文書は、加工された範囲だけをエージェントに渡す',async()=>{
   const doc=prepareAgentDocument('前 ababa 後','aba');
   doc.gateway.approveDocument(doc.gateway.revision);
