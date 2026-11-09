@@ -23,7 +23,7 @@ test('実際のHTTP通信で、AとBは自分宛てのシェアだけを保管�
     // AとBの保管内容は提出IDが対応するだけで、片方の値からは回答（0/1）が分からない。
     assert.deepEqual(heldA.map((h) => h.batch), heldB.map((h) => h.batch));
     const a = (await call(A, '/publish', {})).body, b = (await call(B, '/publish', {})).body;
-    assert.deepEqual(combineVerifiedSurveyTotals(a,b),{count:3,yes:2,no:1});
+    assert.deepEqual(await combineVerifiedSurveyTotals(a,b),{count:3,yes:2,no:1});
   } finally { A.close(); B.close(); }
 });
 

@@ -44,8 +44,9 @@ export async function verifySurveyShare(input,party,campaign){
   }catch{return false;}
 }
 
-// Each collector receives exactly one share. The returned totals are not
-// authenticated and no proof of honest server-side aggregation is supplied.
+// Each collector receives one share. Aggregate openings can be checked
+// against the public commitments, but do not authenticate the server or prove
+// that every submitted ballot was included.
 export function createVerifiedSurveyCollector(party,campaign){
   if(!['A','B'].includes(party)||!validId(campaign))throw new Error('集計担当または集計IDが不正です。');
   const packets=new Map();let state='open',received=0;
@@ -56,23 +57,40 @@ export function createVerifiedSurveyCollector(party,campaign){
       const p=structuredClone(input);
       if(!await verifySurveyShare(p,party,campaign))throw new Error('回答シェアまたは証明が不正です。');
       if(state!=='open'||packets.has(p.batch)||packets.size>=100)throw new Error('集計が確定済みか、回答が重複しています。');
-      packets.set(p.batch,{value:p.value,A:p.A,B:p.B});received++;
+      packets.set(p.batch,{value:p.value,blind:p.blind,A:p.A,B:p.B,proof:p.proof});received++;
       return received;
     },
     async publish(){
       if(state!=='open'||packets.size<3)throw new Error('未確定の回答が３件以上必要です。');
       state='closing';
-      const entries=[...packets].sort(([a],[b])=>a.localeCompare(b));
-      const digest=await hash(canonical(entries.map(([batch,{A,B}])=>({batch,A,B}))));
+      const entries=[...packets].sort(([a],[b])=>a<b?-1:a>b?1:0);
+      const ballots=entries.map(([batch,{A,B,proof}])=>({batch,A,B,proof}));
+      const digest=await hash(canonical(ballots));
       const sum=entries.reduce((n,[,p])=>mod(n+decode(p.value),q),0n);
+      const blind=entries.reduce((n,[,p])=>mod(n+decode(p.blind),q),0n);
       packets.clear();state='published';
-      return Object.freeze({protocol:'sumi-verified-total-v1',campaign,party,count:entries.length,digest,share:encode(sum)});
+      return {protocol:'sumi-verified-total-v2',campaign,party,count:entries.length,digest,share:encode(sum),blind:encode(blind),ballots};
     }
   });
 }
 
-export function combineVerifiedSurveyTotals(a,b){
-  if(a?.protocol!=='sumi-verified-total-v1'||b?.protocol!==a.protocol||a.party!=='A'||b.party!=='B'||!validId(a.campaign)||a.campaign!==b.campaign||!Number.isInteger(a.count)||a.count<3||a.count>100||a.count!==b.count||typeof a.digest!=='string'||!/^[a-f0-9]{64}$/.test(a.digest)||a.digest!==b.digest)throw new Error('集計結果が対応していません。');
+async function verifyTotal(total){
+  if(!Array.isArray(total.ballots)||total.ballots.length!==total.count||await hash(canonical(total.ballots))!==total.digest)return false;
+  let previous='',sum=Point.ZERO;
+  for(const ballot of total.ballots){
+    if(!ballot||!validId(ballot.batch)||ballot.batch<=previous)return false;
+    previous=ballot.batch;
+    const A=point(ballot.A),B=point(ballot.B);
+    if(ballot.proof?.commitment!==A.add(B).toHex()||ballot.proof.context!==await publicContext(total.campaign,ballot.batch,ballot.A,ballot.B)||!verifyCommittedBit(ballot.proof))return false;
+    sum=sum.add(total.party==='A'?A:B);
+  }
+  return commit(decode(total.share),decode(total.blind)).equals(sum);
+}
+
+export async function combineVerifiedSurveyTotals(inputA,inputB){
+  const a=structuredClone(inputA),b=structuredClone(inputB);
+  if(a?.protocol!=='sumi-verified-total-v2'||b?.protocol!==a.protocol||a.party!=='A'||b.party!=='B'||!validId(a.campaign)||a.campaign!==b.campaign||!Number.isInteger(a.count)||a.count<3||a.count>100||a.count!==b.count||typeof a.digest!=='string'||!/^[a-f0-9]{64}$/.test(a.digest)||a.digest!==b.digest)throw new Error('集計結果が対応していません。');
+  if(!await verifyTotal(a)||!await verifyTotal(b))throw new Error('集計結果と提出内容の検証に失敗しました。');
   const sum=mod(decode(a.share)+decode(b.share),q);
   if(sum>BigInt(a.count))throw new Error('合計が回答数を超えています。');
   return {count:a.count,yes:Number(sum),no:a.count-Number(sum)};

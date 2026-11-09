@@ -18,7 +18,7 @@ $('publish').addEventListener('click', async () => {
   $('publish').disabled = true;
   try {
     const [a, b] = await Promise.all([post(A + '/publish'), post(B + '/publish')]);
-    const {yes}=combineVerifiedSurveyTotals(a,b);
+    const {yes}=await combineVerifiedSurveyTotals(a,b);
     $('yesN').textContent = `${yes}件`; $('noN').textContent = `${a.count - yes}件`;
     $('results').hidden = false;
     requestAnimationFrame(() => { $('yesBar').style.width = `${yes / a.count * 100}%`; $('noBar').style.width = `${(a.count - yes) / a.count * 100}%`; });
