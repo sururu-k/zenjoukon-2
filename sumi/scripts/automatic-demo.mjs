@@ -3,7 +3,7 @@ import { composeDocument, prepareDocument } from '../src/document-workflow.js';
 import { createWorkspace } from '../src/workspace.js';
 import { verifyPackage } from '../src/crypto.js';
 import { proveCommittedSum, verifyCommittedSum } from '../src/secure/zk.js';
-import { createAgentGateway } from '../src/agent-guard.js';
+import { prepareAgentDocument } from '../src/agent-document.js';
 
 // All inputs are fictional. Effects are captured in memory; no files or network
 // are used. Approval here is simulated solely to demonstrate the workflow.
@@ -41,7 +41,10 @@ console.log('元の合計：検証成功 / 合計を61に変更：検証失敗')
 console.log('※件数・合計などから個別値が推測される場合があります。\n');
 
 console.log('【Agent】確認した版だけを取り出す');
-const gateway=createAgentGateway('作品発表会は来月です。詳細は後日お知らせします。');
+const agentDocument=prepareAgentDocument('作品発表会は来月です。連絡先：teacher@example.test');
+const {gateway}=agentDocument;
+assert.ok(!agentDocument.preview.includes('teacher@example.test'));
+console.log('自動加工した文書：'+agentDocument.preview);
 const proposal={action:'summarize',resource:'approved-document',revision:gateway.revision};
 const before=await gateway.agent.execute(proposal);assert.equal(before.status,'denied');
 console.log(`確認前の要約：拒否（ルール ${before.event.policyDecision} / 実行 ${before.event.status}）`);

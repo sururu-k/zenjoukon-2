@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { evaluateAgentAction, createDecisionReceipt, verifyDecisionReceipt, createAgentGateway } from '../src/agent-guard.js';
 import { canExecuteAgent } from '../src/agent-access.js';
+import { prepareAgentDocument } from '../src/agent-document.js';
+
+test('エージェントへ渡す前に自動加工し、加工版への確認が必要',async()=>{
+  const secret='sample@example.test';const prepared=prepareAgentDocument(`連絡先：${secret}`);
+  assert.equal(prepared.maskedCount,1);assert.ok(!prepared.preview.includes(secret));
+  const request={action:'read',resource:'approved-document',revision:prepared.gateway.revision};
+  assert.equal((await prepared.gateway.agent.execute(request)).status,'denied');
+  prepared.gateway.approveDocument(request.revision);
+  const result=await prepared.gateway.agent.execute(request);assert.equal(result.value,prepared.preview);assert.ok(!result.value.includes(secret));
+});
 
 test('エージェントの実行条件は未指定や真偽値以外を許可しない',()=>{
   const all={fresh:true,approved:true,allowed:true,target:true,supported:true};
