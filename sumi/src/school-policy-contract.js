@@ -12,6 +12,18 @@ function freeze(value) {
   }
   return value;
 }
+// TextEncoder replaces isolated UTF-16 surrogates with U+FFFD. Reject them so
+// a policy term cannot mean different byte strings to different consumers.
+function isWellFormedUnicode(value) {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(++i);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
+    } else if (code >= 0xdc00 && code <= 0xdfff) return false;
+  }
+  return true;
+}
 export function validateSchoolPolicy(policy) {
   keys(policy, ['format', 'version', 'school', 'disclosurePresets', 'documentProof', 'assessment']);
   if (policy.format !== 'sumi-school-policy-example' || policy.version !== 1 || typeof policy.school !== 'string' || !policy.school.trim() || policy.school.length > 120) fail();
@@ -26,7 +38,7 @@ export function validateSchoolPolicy(policy) {
   const words = policy.documentProof.forbidden;
   if (!Array.isArray(words) || words.length < 1 || words.length > 4) fail();
   for (const word of words) {
-    if (typeof word !== 'string' || !word.length || /[\r\n]/.test(word) || new TextEncoder().encode(word).length > 16) fail();
+    if (typeof word !== 'string' || !word.length || !isWellFormedUnicode(word) || /[\r\n]/.test(word) || new TextEncoder().encode(word).length > 16) fail();
   }
   keys(policy.assessment, ['format', 'version', 'controls']);
   if (policy.assessment.format !== 'sumi-school-policy' || policy.assessment.version !== 1 || !Array.isArray(policy.assessment.controls) || policy.assessment.controls.length < 1 || policy.assessment.controls.length > 100) fail();

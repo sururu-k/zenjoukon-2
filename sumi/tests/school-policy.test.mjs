@@ -37,6 +37,8 @@ test('共通設定の不正な版・未知項目・型や文字数の異常を�
     p => { p.documentProof.forbidden = []; },
     p => { p.documentProof.forbidden = ['長'.repeat(6)]; },
     p => { p.documentProof.forbidden = ['山\n田']; },
+    p => { p.documentProof.forbidden = ['\ud800']; },
+    p => { p.documentProof.forbidden = ['\udc00']; },
     p => { p.assessment.controls.push({...p.assessment.controls[0]}); },
     p => { p.assessment.controls[0].required = 'true'; },
   ];
@@ -45,4 +47,6 @@ test('共通設定の不正な版・未知項目・型や文字数の異常を�
   assert.ok(Object.isFrozen(valid));
   assert.ok(Object.isFrozen(valid.documentProof.forbidden));
   assert.ok(Object.isFrozen(valid.disclosurePresets.public));
+  const emoji=clone(); emoji.documentProof.forbidden=['📚'];
+  assert.deepEqual(validateSchoolPolicy(emoji).documentProof.forbidden,['📚']);
 });
