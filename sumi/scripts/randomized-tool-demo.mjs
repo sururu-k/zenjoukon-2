@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { prepareRandomizedSumSnapshot, openRandomizedSumSnapshot } from '../src/secure/sealed-randomized-sum-tool.js';
 import { createVerifiedSumToolGateway, RANDOMIZED_SUM_TOOL } from '../src/secure/verified-tool-gateway.js';
-import { signAgentToolPolicy, createAgentToolFromSignedPolicy } from '../src/secure/signed-agent-tool-policy.js';
+import { signAgentToolPolicy } from '../src/secure/signed-agent-tool-policy.js';
+import { createAgentFromPinnedRandomizedSnapshot } from '../src/secure/pinned-randomized-agent.js';
 import { attestVerifiedToolResult } from '../src/secure/tool-result-attestation.js';
 import { createVerifiedToolAuditLog } from '../src/secure/verified-tool-audit-log.js';
 import { sealToolAuditLog, openToolAuditLog } from '../src/secure/sealed-tool-audit-log.js';
@@ -35,10 +36,10 @@ for(const datasetId of ['school','community']){
 const policyKey=await makeSigningKey(), auditKey=await makeSigningKey();
 const policyTrust={format:'sumi-agent-tool-policy-trust',version:1,threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',policyKey.publicKey)]};
 const auditTrust={format:'sumi-tool-audit-trust',version:1,threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',auditKey.publicKey)]};
-const policy={format:'sumi-agent-tool-policy',version:2,policyId:'random-demo-policy',recipient:'agent-reader',datasets:['school','community'],minimumCount:3,tool:RANDOMIZED_SUM_TOOL};
+const policy={format:'sumi-agent-tool-policy',version:3,policyId:'random-demo-policy',recipient:'agent-reader',datasets:['school','community'],minimumCount:3,tool:RANDOMIZED_SUM_TOOL,snapshotCheckpoint:prepared.checkpoint};
 const signedPolicy=await signAgentToolPolicy(policy,[policyKey]), expectedPolicyHash=await hash(canonical(policy));
 const log=createVerifiedToolAuditLog(trust,auditTrust), expectedRequests=new Map();
-const {owner}=await createAgentToolFromSignedPolicy({signedPolicy,expectedPolicyHash,policyTrust,proofTrust:trust,transport:call=>tool.run(call),recordCandidate:async ({datasetId,tool:mode,request,evidence})=>{
+const {owner}=await createAgentFromPinnedRandomizedSnapshot({signedPolicy,expectedPolicyHash,policyTrust,proofTrust:trust,envelope:stored,passphrase:password,signingKeys:[key],recordCandidate:async ({datasetId,tool:mode,request,evidence})=>{
   assert.equal(mode,RANDOMIZED_SUM_TOOL);
   const record=await attestVerifiedToolResult(datasetId,request,evidence,trust,[auditKey],RANDOMIZED_SUM_TOOL);
   await log.append(datasetId,request,evidence,record,RANDOMIZED_SUM_TOOL);
@@ -54,5 +55,5 @@ const restored=await openToolAuditLog(encrypted,'fictional-demo-passphrase',chec
 assert.deepEqual(restored.checkpoint(),checkpoint);
 const wrongMode=new Map([...expectedRequests].map(([id,value])=>[id,{...value,tool:'sumi.sum.v1'}]));
 await assert.rejects(openToolAuditLog(encrypted,'fictional-demo-passphrase',checkpoint,wrongMode,trust,auditTrust));
-console.log('署名付き方式指定、署名付き監査記録、暗号化復元を検証。別方式としての復元は拒否。');
+console.log('署名付き設定に固定した抽選状態、署名付き監査記録、暗号化復元を検証。別方式としての復元は拒否。');
 console.log('署名と合計証明は保存された合計と整合する合成値に対するもので、元の回答や乱数の正しさは証明しません。別に保持したチェックポイントと同じファイルの復元のみ再抽選を防ぎ、他の公開をまたぐ予算管理はありません。');

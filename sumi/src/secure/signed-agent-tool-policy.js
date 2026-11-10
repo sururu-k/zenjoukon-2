@@ -11,7 +11,8 @@ function policySnapshot(input) {
   const p = structuredClone(input);
   const v1 = p?.version === 1 && ownKeys(p, ['format','version','policyId','recipient','datasets','minimumCount']);
   const v2 = p?.version === 2 && ownKeys(p, ['format','version','policyId','recipient','datasets','minimumCount','tool']) && [EXACT_SUM_TOOL,RANDOMIZED_SUM_TOOL].includes(p.tool);
-  if ((!v1 && !v2) || p.format !== 'sumi-agent-tool-policy' || typeof p.policyId !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(p.policyId) || typeof p.recipient !== 'string' || !p.recipient.trim() || p.recipient.length > 120 || !isWellFormedUnicode(p.recipient) || !Array.isArray(p.datasets) || p.datasets.length < 1 || p.datasets.length > 50 || p.datasets.some(v => typeof v !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(v)) || new Set(p.datasets).size !== p.datasets.length || !Number.isInteger(p.minimumCount) || p.minimumCount < 3 || p.minimumCount > 1000) fail();
+  const v3 = p?.version === 3 && ownKeys(p, ['format','version','policyId','recipient','datasets','minimumCount','tool','snapshotCheckpoint']) && p.tool === RANDOMIZED_SUM_TOOL && typeof p.snapshotCheckpoint === 'string' && /^[0-9a-f]{64}$/.test(p.snapshotCheckpoint);
+  if ((!v1 && !v2 && !v3) || p.format !== 'sumi-agent-tool-policy' || typeof p.policyId !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(p.policyId) || typeof p.recipient !== 'string' || !p.recipient.trim() || p.recipient.length > 120 || !isWellFormedUnicode(p.recipient) || !Array.isArray(p.datasets) || p.datasets.length < 1 || p.datasets.length > 50 || p.datasets.some(v => typeof v !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(v)) || new Set(p.datasets).size !== p.datasets.length || !Number.isInteger(p.minimumCount) || p.minimumCount < 3 || p.minimumCount > 1000) fail();
   return p;
 }
 
@@ -36,6 +37,9 @@ export async function verifyAgentToolPolicy(input, expectedPolicyHash, trust) {
 export async function createAgentToolFromSignedPolicy({ signedPolicy, expectedPolicyHash, policyTrust, proofTrust, transport, recordCandidate }) {
   const signed = structuredClone(signedPolicy), anchors = structuredClone(policyTrust), evidenceTrust = structuredClone(proofTrust);
   const checked = await verifyAgentToolPolicy(signed, expectedPolicyHash, anchors);
+  // v3 needs the sealed-snapshot constructor: an arbitrary transport could
+  // ignore its checkpoint and silently serve a different randomization.
+  if (checked.policy.version === 3) fail();
   const owner = createAgentVerifiedTool({ trust:evidenceTrust, recipient:checked.policy.recipient, datasets:checked.policy.datasets, minimumCount:checked.policy.minimumCount, toolName:checked.policy.version === 2 ? checked.policy.tool : EXACT_SUM_TOOL, transport, recordCandidate });
   return Object.freeze({owner,policyHash:checked.policyHash,policySignatures:checked.verifiedSignatures});
 }
