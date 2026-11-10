@@ -27,7 +27,7 @@ export function createAgentVerifiedTool({ trust, recipient, datasets, transport,
         if (!current()) return denied('確認が変更されました。');
         if (result.count < minimumCount) return denied('公開に必要な件数を満たしていません。');
         if (recordCandidate) {
-          await recordCandidate({ datasetId, request: structuredClone(call.request), evidence: structuredClone(response.evidence) });
+          await recordCandidate({ datasetId, tool: result.name, request: structuredClone(call.request), evidence: structuredClone(response.evidence) });
           if (!current()) return denied('確認が変更されました。');
         }
         return Object.freeze({ status: 'completed', tool: result.name, datasetId, sum: result.sum, count: result.count, verifiedSignatures: result.verifiedSignatures });

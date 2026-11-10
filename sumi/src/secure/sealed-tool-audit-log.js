@@ -17,7 +17,7 @@ export async function openToolAuditLog(envelope, passphrase, expectedCheckpoint,
   const restored = createVerifiedToolAuditLog(pTrust, aTrust);
   for (const entry of payload.log.entries) {
     const expected = requests.get(entry.record.payload.requestId);
-    await restored.append(expected.datasetId, expected.request, entry.evidence, entry.record);
+    await restored.append(expected.datasetId, expected.request, entry.evidence, entry.record, expected.tool);
   }
   return restored;
 }

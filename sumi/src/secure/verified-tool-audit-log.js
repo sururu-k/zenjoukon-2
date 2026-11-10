@@ -12,9 +12,9 @@ export function createVerifiedToolAuditLog(proofTrust, auditTrust) {
   const pTrust = structuredClone(proofTrust), aTrust = structuredClone(auditTrust), entries = [], ids = new Set();
   let head = GENESIS, queue = Promise.resolve();
   return Object.freeze({
-    async append(datasetId, expectedRequest, inputEvidence, inputRecord) {
+    async append(datasetId, expectedRequest, inputEvidence, inputRecord, expectedTool) {
       const request = structuredClone(expectedRequest), evidence = structuredClone(inputEvidence), record = structuredClone(inputRecord);
-      await verifyToolResultAttestation(record, datasetId, request, evidence, pTrust, aTrust);
+      await verifyToolResultAttestation(record, datasetId, request, evidence, pTrust, aTrust, expectedTool);
       const operation = queue.then(async () => {
         if (entries.length >= 100 || ids.has(request.requestId)) fail();
         const entry = { index: entries.length, previous: head, record, evidence };
@@ -39,8 +39,8 @@ export async function verifyToolAuditLog(input, expectedCheckpoint, expectedRequ
     const entry = log.entries[i], id = entry?.record?.payload?.requestId;
     if (!ownKeys(entry, ['index', 'previous', 'record', 'evidence', 'digest']) || entry.index !== i || entry.previous !== previous || typeof id !== 'string' || ids.has(id)) fail();
     const expected = requests.get(id);
-    if (!ownKeys(expected, ['datasetId', 'request']) || expected.request?.requestId !== id) fail();
-    await verifyToolResultAttestation(entry.record, expected.datasetId, expected.request, entry.evidence, pTrust, aTrust);
+    if (!(ownKeys(expected, ['datasetId', 'request']) || ownKeys(expected, ['datasetId', 'request', 'tool'])) || expected.request?.requestId !== id) fail();
+    await verifyToolResultAttestation(entry.record, expected.datasetId, expected.request, entry.evidence, pTrust, aTrust, expected.tool);
     if (entry.digest !== await digest(entry)) fail();
     previous = entry.digest; ids.add(id);
   }

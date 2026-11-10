@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { makeSigningKey } from '../src/crypto.js';
 import { createSignedSum } from '../src/secure/verified-sum-bridge.js';
-import { createVerifiedSumToolGateway } from '../src/secure/verified-tool-gateway.js';
+import { createVerifiedSumToolGateway, RANDOMIZED_SUM_TOOL } from '../src/secure/verified-tool-gateway.js';
+import { createRandomizedSumTool } from '../src/secure/randomized-sum-tool.js';
 import { attestVerifiedToolResult } from '../src/secure/tool-result-attestation.js';
 import { createVerifiedToolAuditLog } from '../src/secure/verified-tool-audit-log.js';
 import { sealToolAuditLog, openToolAuditLog } from '../src/secure/sealed-tool-audit-log.js';
@@ -41,4 +42,22 @@ test('encrypted audit file restores a separately verified log and supports futur
     const second=await entry('community');
     assert.equal((await restored.append('community',second.call.request,second.evidence,second.record)).size,2);
   } finally { await rm(dir,{recursive:true,force:true}); }
+});
+
+test('randomized audit records require separately expected mode across sealing and restore', async () => {
+  const prover=await makeSigningKey(), auditor=await makeSigningKey();
+  const proofTrust={format:'sumi-sum-verifier-trust',version:1,threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',prover.publicKey)]};
+  const auditTrust={format:'sumi-tool-audit-trust',version:1,threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',auditor.publicKey)]};
+  const gateway=createVerifiedSumToolGateway(proofTrust,'audit-owner',RANDOMIZED_SUM_TOOL), log=createVerifiedToolAuditLog(proofTrust,auditTrust);
+  const call=await gateway.begin('school'), tool=createRandomizedSumTool({school:[true,false,true]},[prover]);
+  const output=await tool.run(call);
+  const record=await attestVerifiedToolResult('school',call.request,output.evidence,proofTrust,[auditor],RANDOMIZED_SUM_TOOL);
+  await assert.rejects(log.append('school',call.request,output.evidence,record));
+  await log.append('school',call.request,output.evidence,record,RANDOMIZED_SUM_TOOL);
+  const checkpoint=log.checkpoint(), expected=new Map([[call.request.requestId,{datasetId:'school',request:call.request,tool:RANDOMIZED_SUM_TOOL}]]);
+  const sealed=await sealToolAuditLog(log.snapshot(),checkpoint,expected,proofTrust,auditTrust,'test-passphrase-123');
+  const wrong=new Map([[call.request.requestId,{datasetId:'school',request:call.request,tool:'sumi.sum.v1'}]]);
+  await assert.rejects(openToolAuditLog(sealed,'test-passphrase-123',checkpoint,wrong,proofTrust,auditTrust));
+  const restored=await openToolAuditLog(sealed,'test-passphrase-123',checkpoint,expected,proofTrust,auditTrust);
+  assert.deepEqual(restored.checkpoint(),checkpoint);
 });
