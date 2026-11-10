@@ -19,7 +19,8 @@
     "demo:survey-bridge": "node scripts/signed-survey-bridge-demo.mjs",
     "demo:survey-processes": "node scripts/process-survey-bridge.mjs",
     "demo:verified-tool": "node scripts/verified-tool-demo.mjs",
-    "demo:randomized-tool": "node scripts/randomized-tool-demo.mjs"
+    "demo:randomized-tool": "node scripts/randomized-tool-demo.mjs",
+    "demo:fhe-attestation": "node scripts/fhe-attestation-demo.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",
