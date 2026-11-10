@@ -3,6 +3,7 @@
 // 回答者のブラウザが回答を2つのシェアに分け、Aに片方、Bにもう片方を送る。
 // 注意: 1つのプロセスで両方を起動するのはデモのため。実運用では別の管理者・別の端末が必要。
 import { createServer } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,7 +45,7 @@ export async function startCollector(party, port, options = {}) {
   }
   let pendingTotal=null,signedTotal=null,publishTask=null;
   let held = []; // この担当が実際に保管しているもの。乱数にしか見えないことを画面で示すために公開する。
-  const server = createServer(async (req, res) => {
+  const handler = async (req, res) => {
     try {
       if (req.method === 'OPTIONS') return json(res, 204, {});
       const path = new URL(req.url, 'http://x').pathname;
@@ -76,7 +77,8 @@ export async function startCollector(party, port, options = {}) {
     } catch (error) {
       return json(res, 400, { error: error.message });
     }
-  });
+  };
+  const server = options.tls ? createHttpsServer(options.tls, handler) : createServer(handler);
   return new Promise((ok) => server.listen(port, '127.0.0.1', () => ok(server)));
 }
 

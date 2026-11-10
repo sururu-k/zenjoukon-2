@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
+import { request } from 'node:https';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createVerifiedSurveyBallot } from '../src/secure/verified-survey.js';
 import { combineSignedSurveyTotals } from '../src/secure/signed-survey-totals.js';
@@ -14,7 +15,7 @@ function ready(child, party) {
       if (error) reject(error); else resolve(value);
     }
     function onMessage(value) {
-      if (value?.party !== party || value.pid !== child.pid || !Number.isInteger(value.port) || !value.publicKey) return finish(new Error('集計担当の起動情報が不正です。'));
+      if (value?.party !== party || value.pid !== child.pid || !Number.isInteger(value.port) || !value.publicKey || typeof value.certificate !== 'string') return finish(new Error('集計担当の起動情報が不正です。'));
       finish(null, value);
     }
     function onExit() { finish(new Error('集計担当が起動前に終了しました。')); }
@@ -31,11 +32,25 @@ function stop(child) {
     else child.kill();
   });
 }
-async function post(port, path, body) {
-  const response = await fetch(`http://127.0.0.1:${port}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || '集計に失敗しました。');
-  return result;
+function call(worker, path, body, certificate = worker.certificate) {
+  return new Promise((resolve, reject) => {
+    const req = request({ hostname: '127.0.0.1', servername: 'localhost', port: worker.port, path, method: body === undefined ? 'GET' : 'POST', ca: certificate, rejectUnauthorized: true, headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(10000) }, response => {
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.on('error', reject);
+      response.on('end', () => {
+        try { resolve({ status: response.statusCode, body: JSON.parse(Buffer.concat(chunks).toString('utf8')) }); }
+        catch (error) { reject(error); }
+      });
+    });
+    req.on('error', reject);
+    req.end(body === undefined ? undefined : JSON.stringify(body));
+  });
+}
+async function post(worker, path, body) {
+  const response = await call(worker, path, body);
+  if (response.status !== 200) throw new Error(response.body.error || '集計に失敗しました。');
+  return response.body;
 }
 
 // The parent is the simulated respondent and verifier; it sees the answers.
@@ -48,14 +63,16 @@ export async function runProcessSurvey(campaign, answers) {
     const [a, b] = await Promise.all(children.map((child, i) => ready(child, ['A', 'B'][i])));
     const trust = { format: 'sumi-survey-collector-trust', version: 1, A: { threshold: 1, publicKeys: [a.publicKey] }, B: { threshold: 1, publicKeys: [b.publicKey] } };
     assert.notEqual(a.pid, b.pid);
+    // Pinning A to B's unrelated certificate must fail before any share is sent.
+    await assert.rejects(call(a, '/status', undefined, b.certificate));
     for (const answer of answers) {
       const ballot = await createVerifiedSurveyBallot(answer, campaign);
-      await post(a.port, '/share', ballot.A);
-      await post(b.port, '/share', ballot.B);
+      await post(a, '/share', ballot.A);
+      await post(b, '/share', ballot.B);
     }
-    const heldStatuses = await Promise.all([a, b].map(async worker => (await fetch(`http://127.0.0.1:${worker.port}/held`, { signal: AbortSignal.timeout(10000) })).status));
+    const heldStatuses = await Promise.all([a, b].map(async worker => (await call(worker, '/held')).status));
     assert.deepEqual(heldStatuses, [404, 404]);
-    const [totalA, totalB] = await Promise.all([post(a.port, '/publish', {}), post(b.port, '/publish', {})]);
+    const [totalA, totalB] = await Promise.all([post(a, '/publish', {}), post(b, '/publish', {})]);
     const result = await combineSignedSurveyTotals(totalA, totalB, campaign, trust);
     assert.equal(result.yes, answers.filter(Boolean).length);
     const changed = structuredClone(totalA);
@@ -75,5 +92,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`${label}の架空アンケート: ${result.count}件、賛成 ${result.yes}・反対 ${result.no}。別プロセスの署名と集計証明を検証しました。`);
     console.log('  個別シェア表示は無効。結果の改変、担当の入れ替え、異なる集計IDを拒否しました。');
   }
-  console.log('同一端末上のデモです。親プロセスは回答を知り、HTTP通信は暗号化されません。公開鍵は起動時のローカルIPCで受け取ります。');
+  console.log('通信は各担当の証明書を固定した HTTPS。異なる証明書を拒否しました。');
+  console.log('同一端末上のデモです。親プロセスは回答を知り、証明書と署名の公開鍵は起動時のローカル IPC で受け取ります。');
 }
