@@ -12,15 +12,17 @@ function context(seal){
   try{parms.setPolyModulusDegree(4096);parms.setCoeffModulus(coeff);parms.setPlainModulus(plain);const ctx=new seal.SEALContext(parms,true,seal.SecLevelType.tc128);if(!ctx.parametersSet())throw new Error('BFVの暗号パラメータが無効です。');return ctx;}finally{plain.delete();coeff.delete();parms.delete();}
 }
 function packet(p){if(p?.protocol!=='sumi-bfv-input-v1'||p.parameters!==PARAMETERS||typeof p.keyId!=='string'||!/^[a-f0-9]{64}$/.test(p.keyId)||typeof p.id!=='string'||!p.id||p.id.length>80||!Number.isInteger(p.count)||p.count<1||p.count>1000||typeof p.ciphertext!=='string'||p.ciphertext.length>500000)throw new Error('不正なBFV暗号文です。');}
+function encryptValues(seal,encoder,encryptor,keyId,input){const values=minutes(input),pt=new seal.Plaintext(),ct=new seal.Ciphertext();try{encoder.encode(BigUint64Array.from([BigInt(values.length),BigInt(values.reduce((a,b)=>a+b,0))]),pt);encryptor.encrypt(pt,ct);return {protocol:'sumi-bfv-input-v1',parameters:PARAMETERS,keyId,id:crypto.randomUUID(),count:values.length,ciphertext:ct.saveToBase64(seal.ComprModeType.none)};}finally{ct.delete();pt.delete();}}
 
 export async function createFHEOwner(){
   const seal=await sealRuntime(),ctx=context(seal),keygen=new seal.KeyGenerator(ctx),publicKey=keygen.createPublicKey();
-  const secretKey=keygen.secretKey(),encoder=new seal.BatchEncoder(ctx),encryptor=new seal.Encryptor(ctx,publicKey),decryptor=new seal.Decryptor(ctx,secretKey),keyId=await hash(publicKey.saveToBase64(seal.ComprModeType.none));keygen.delete();
+  const secretKey=keygen.secretKey(),encoder=new seal.BatchEncoder(ctx),encryptor=new seal.Encryptor(ctx,publicKey),decryptor=new seal.Decryptor(ctx,secretKey),encodedPublicKey=publicKey.saveToBase64(seal.ComprModeType.none),keyId=await hash(encodedPublicKey);keygen.delete();
   let closed=false;
   const current=()=>{if(closed)throw new Error('秘密鍵は破棄されています。');};
   return Object.freeze({
     keyId,
-    encrypt(input){current();const values=minutes(input),pt=new seal.Plaintext(),ct=new seal.Ciphertext();try{encoder.encode(BigUint64Array.from([BigInt(values.length),BigInt(values.reduce((a,b)=>a+b,0))]),pt);encryptor.encrypt(pt,ct);return {protocol:'sumi-bfv-input-v1',parameters:PARAMETERS,keyId,id:crypto.randomUUID(),count:values.length,ciphertext:ct.saveToBase64(seal.ComprModeType.none)};}finally{ct.delete();pt.delete();}},
+    exportPublicKey(){current();return Object.freeze({format:'sumi-bfv-public-key',version:1,parameters:PARAMETERS,keyId,publicKey:encodedPublicKey});},
+    encrypt(input){current();return encryptValues(seal,encoder,encryptor,keyId,input);},
     decrypt(result){
       current();if(result?.protocol!=='sumi-bfv-total-v1'||result.parameters!==PARAMETERS||result.keyId!==keyId||!Number.isInteger(result.count)||result.count<1||result.count>1000||typeof result.ciphertext!=='string'||result.ciphertext.length>500000)throw new Error('この秘密鍵に対応する集計結果ではありません。');
       const ct=new seal.Ciphertext(),pt=new seal.Plaintext();try{ct.loadFromBase64(ctx,result.ciphertext);const budget=decryptor.invariantNoiseBudget(ct);if(budget<=0)throw new Error('暗号文のノイズ予算を使い切っています。');decryptor.decrypt(ct,pt);const decoded=encoder.decodeBigUint64(pt),count=Number(decoded[0]),sum=Number(decoded[1]);if(count!==result.count||sum<0||sum>180*count)throw new Error('集計結果が範囲外です。');return {count,sum,mean:sum/count,noiseBudgetBits:budget};}finally{ct.delete();pt.delete();}
@@ -29,9 +31,23 @@ export async function createFHEOwner(){
   });
 }
 
+// An input contributor uses only the exported public key. The expected key
+// ID must be authenticated independently; a package cannot vouch for itself.
+export async function createFHEEncryptor(input,expectedKeyId){
+  const pkg=structuredClone(input);
+  if(!pkg||typeof pkg!=='object'||Array.isArray(pkg)||Object.keys(pkg).length!==5||!['format','version','parameters','keyId','publicKey'].every(k=>Object.hasOwn(pkg,k))||pkg.format!=='sumi-bfv-public-key'||pkg.version!==1||pkg.parameters!==PARAMETERS||typeof expectedKeyId!=='string'||!/^[a-f0-9]{64}$/.test(expectedKeyId)||pkg.keyId!==expectedKeyId||typeof pkg.publicKey!=='string'||pkg.publicKey.length>500000||await hash(pkg.publicKey)!==expectedKeyId)throw new Error('公開鍵または期待する鍵IDが不正です。');
+  const seal=await sealRuntime(),ctx=context(seal),publicKey=new seal.PublicKey();
+  let encoder,encryptor;
+  try{publicKey.loadFromBase64(ctx,pkg.publicKey);encoder=new seal.BatchEncoder(ctx);encryptor=new seal.Encryptor(ctx,publicKey);}
+  catch(error){if(encryptor)encryptor.delete();if(encoder)encoder.delete();publicKey.delete();ctx.delete();throw error;}
+  let closed=false;
+  return Object.freeze({keyId:expectedKeyId,encrypt(input){if(closed)throw new Error('暗号化器は破棄されています。');return encryptValues(seal,encoder,encryptor,expectedKeyId,input);},destroy(){if(!closed){closed=true;encryptor.delete();encoder.delete();publicKey.delete();ctx.delete();}}});
+}
+
 // The evaluator only accepts ciphertexts. It has neither a private key nor a
 // decryptor; this same function can run on a separate, untrusted computer.
-export async function evaluateCiphertexts(inputs){
+export async function evaluateCiphertexts(inputPackets){
+  const inputs=structuredClone(inputPackets);
   if(!Array.isArray(inputs)||inputs.length<1||inputs.length>100)throw new Error('BFV暗号文を1〜100件指定してください。');
   inputs.forEach(packet);const first=inputs[0],ids=new Set();let count=0;
   for(const p of inputs){if(p.keyId!==first.keyId||ids.has(p.id))throw new Error('鍵の違う暗号文、または同じ暗号文の重複があります。');ids.add(p.id);count+=p.count;}
