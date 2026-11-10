@@ -4,6 +4,7 @@
 // 注意: 1つのプロセスで両方を起動するのはデモのため。実運用では別の管理者・別の端末が必要。
 import { createServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
+import { timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,8 @@ async function readBody(req) {
 export async function startCollector(party, port, options = {}) {
   const collector = createVerifiedSurveyCollector(party, options.campaign ?? CAMPAIGN);
   const exposeHeld = options.exposeHeld !== false;
+  const publishToken = options.publishToken;
+  if (publishToken !== undefined && (!options.tls || typeof publishToken !== 'string' || !/^[a-f0-9]{64}$/.test(publishToken))) throw new Error('集計確定の認証には TLS と有効なトークンが必要です。');
   // Keep the key handles chosen at startup even if the caller later mutates
   // its configuration objects. The CryptoKey handles themselves are opaque.
   const signingKeys=options.signingKeys===undefined?null:[...options.signingKeys].map(pair=>Object.freeze({publicKey:pair.publicKey,privateKey:pair.privateKey}));
@@ -58,6 +61,10 @@ export async function startCollector(party, port, options = {}) {
       if (req.method === 'GET' && path === '/status') return json(res, 200, { party, count: collector.count, phase: collector.phase });
       if (req.method === 'GET' && path === '/held' && exposeHeld) return json(res, 200, { party, held });
       if (req.method === 'POST' && path === '/publish') {
+        if (publishToken !== undefined) {
+          const supplied = req.headers.authorization;
+          if (typeof supplied !== 'string' || !/^Bearer [a-f0-9]{64}$/.test(supplied) || !timingSafeEqual(Buffer.from(supplied.slice(7), 'hex'), Buffer.from(publishToken, 'hex'))) return json(res, 401, { error: '集計確定の権限がありません。' });
+        }
         let total;
         if(!signingKeys)total=await collector.publish();
         else {

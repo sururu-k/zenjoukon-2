@@ -15,7 +15,7 @@ function ready(child, party) {
       if (error) reject(error); else resolve(value);
     }
     function onMessage(value) {
-      if (value?.party !== party || value.pid !== child.pid || !Number.isInteger(value.port) || !value.publicKey || typeof value.certificate !== 'string') return finish(new Error('集計担当の起動情報が不正です。'));
+      if (value?.party !== party || value.pid !== child.pid || !Number.isInteger(value.port) || !value.publicKey || typeof value.certificate !== 'string' || !/^[a-f0-9]{64}$/.test(value.publishToken)) return finish(new Error('集計担当の起動情報が不正です。'));
       finish(null, value);
     }
     function onExit() { finish(new Error('集計担当が起動前に終了しました。')); }
@@ -32,9 +32,11 @@ function stop(child) {
     else child.kill();
   });
 }
-function call(worker, path, body, certificate = worker.certificate) {
+function call(worker, path, body, certificate = worker.certificate, token) {
   return new Promise((resolve, reject) => {
-    const req = request({ hostname: '127.0.0.1', servername: 'localhost', port: worker.port, path, method: body === undefined ? 'GET' : 'POST', ca: certificate, rejectUnauthorized: true, headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(10000) }, response => {
+    const headers = { 'content-type': 'application/json' };
+    if (token !== undefined) headers.authorization = `Bearer ${token}`;
+    const req = request({ hostname: '127.0.0.1', servername: 'localhost', port: worker.port, path, method: body === undefined ? 'GET' : 'POST', ca: certificate, rejectUnauthorized: true, headers, signal: AbortSignal.timeout(10000) }, response => {
       const chunks = [];
       response.on('data', chunk => chunks.push(chunk));
       response.on('error', reject);
@@ -47,8 +49,8 @@ function call(worker, path, body, certificate = worker.certificate) {
     req.end(body === undefined ? undefined : JSON.stringify(body));
   });
 }
-async function post(worker, path, body) {
-  const response = await call(worker, path, body);
+async function post(worker, path, body, token) {
+  const response = await call(worker, path, body, worker.certificate, token);
   if (response.status !== 200) throw new Error(response.body.error || '集計に失敗しました。');
   return response.body;
 }
@@ -72,7 +74,13 @@ export async function runProcessSurvey(campaign, answers) {
     }
     const heldStatuses = await Promise.all([a, b].map(async worker => (await call(worker, '/held')).status));
     assert.deepEqual(heldStatuses, [404, 404]);
-    const [totalA, totalB] = await Promise.all([post(a, '/publish', {}), post(b, '/publish', {})]);
+    // Test after three ballots, when a premature publish would otherwise work.
+    for (const [worker, other] of [[a, b], [b, a]]) {
+      assert.equal((await call(worker, '/publish', {})).status, 401);
+      assert.equal((await call(worker, '/publish', {}, worker.certificate, other.publishToken)).status, 401);
+      assert.equal((await call(worker, '/status')).body.phase, 'open');
+    }
+    const [totalA, totalB] = await Promise.all([post(a, '/publish', {}, a.publishToken), post(b, '/publish', {}, b.publishToken)]);
     const result = await combineSignedSurveyTotals(totalA, totalB, campaign, trust);
     assert.equal(result.yes, answers.filter(Boolean).length);
     const changed = structuredClone(totalA);
@@ -93,5 +101,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log('  個別シェア表示は無効。結果の改変、担当の入れ替え、異なる集計IDを拒否しました。');
   }
   console.log('通信は各担当の証明書を固定した HTTPS。異なる証明書を拒否しました。');
+  console.log('権限なし・別担当のトークンによる集計確定を拒否しました。');
   console.log('同一端末上のデモです。親プロセスは回答を知り、証明書と署名の公開鍵は起動時のローカル IPC で受け取ります。');
 }
