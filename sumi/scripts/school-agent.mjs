@@ -6,9 +6,10 @@ import { prepareAgentDocument } from '../src/agent-document.js';
 import { createAgentAssistant } from '../src/agent-assistant.js';
 import { createAgentLocalTransport } from './agent-local-transport.mjs';
 import { validateSchoolPolicy } from '../src/school-policy-contract.js';
+import { verifySchoolPolicy } from '../src/secure/signed-school-policy.js';
 
 const [path, action, ...args]=process.argv.slice(2);
-const usage='使い方: node scripts/school-agent.mjs <文書.txt> <read|summarize|send> [--hide-file <語句.txt>] [--policy <共通設定.json>] | <文書.txt> summarize-ai <ローカルモデル名> [--hide-file <語句.txt>] [--policy <共通設定.json>]';
+const usage='使い方: node scripts/school-agent.mjs <文書.txt> <read|summarize|send> [--hide-file <語句.txt>] [--policy <共通設定.json>] | <文書.txt> summarize-ai <ローカルモデル名> [--hide-file <語句.txt>] [--policy <共通設定.json>] | [--signed-policy <署名付き設定.json> --policy-trust <信頼設定.json>]';
 async function main(){
   if(!path||!['read','summarize','summarize-ai','send'].includes(action))throw new Error(usage);
   const remaining=[...args],model=action==='summarize-ai'?remaining.shift():undefined;
@@ -16,10 +17,18 @@ async function main(){
   const options={};
   while(remaining.length){
     const key=remaining.shift(),value=remaining.shift();
-    if(!['--hide-file','--policy'].includes(key)||!value||value.startsWith('--')||Object.hasOwn(options,key))throw new Error(usage);
+    if(!['--hide-file','--policy','--signed-policy','--policy-trust'].includes(key)||!value||value.startsWith('--')||Object.hasOwn(options,key))throw new Error(usage);
     options[key]=value;
   }
   let schoolPolicy;
+  if((options['--signed-policy']&&!options['--policy-trust'])||(!options['--signed-policy']&&options['--policy-trust'])||(options['--policy']&&options['--signed-policy']))throw new Error('署名付き設定には --signed-policy と --policy-trust を両方指定し、--policy と併用しないでください。');
+  if(options['--signed-policy']){
+    const signedText=await readFile(options['--signed-policy'],'utf8'),trustText=await readFile(options['--policy-trust'],'utf8');
+    if(Buffer.byteLength(signedText,'utf8')>1024*1024||Buffer.byteLength(trustText,'utf8')>1024*1024)throw new Error('署名付き設定と信頼設定はそれぞれ1 MiB以内にしてください。');
+    const checked=await verifySchoolPolicy(JSON.parse(signedText),JSON.parse(trustText));
+    schoolPolicy=checked.policy;
+    stdout.write(`共通設定：別途指定した信頼鍵 ${checked.verifiedSignatures}件を検証（必要数 ${checked.threshold}件）。鍵の本人確認・失効は別途必要です。\n`);
+  }
   if(options['--policy']){
     const policyText=await readFile(options['--policy'],'utf8');
     if(Buffer.byteLength(policyText,'utf8')>1024*1024)throw new Error('共通設定は1 MiB以内にしてください。');

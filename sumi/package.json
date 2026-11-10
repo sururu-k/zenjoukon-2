@@ -13,7 +13,8 @@
     "document:live": "node document-live/server.mjs",
     "evaluate:masking": "node scripts/evaluate-masking.mjs",
     "test": "node --test tests/*.test.mjs",
-    "verify:formal": "node scripts/check-formal.mjs"
+    "verify:formal": "node scripts/check-formal.mjs",
+    "demo:signed-policy": "node scripts/signed-policy-demo.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",
