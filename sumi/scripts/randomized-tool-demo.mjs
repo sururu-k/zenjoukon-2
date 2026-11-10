@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { makeSigningKey, hash, canonical } from '../src/crypto.js';
-import { createRandomizedSumTool } from '../src/secure/randomized-sum-tool.js';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { prepareRandomizedSumSnapshot, openRandomizedSumSnapshot } from '../src/secure/sealed-randomized-sum-tool.js';
 import { createVerifiedSumToolGateway, RANDOMIZED_SUM_TOOL } from '../src/secure/verified-tool-gateway.js';
 import { signAgentToolPolicy, createAgentToolFromSignedPolicy } from '../src/secure/signed-agent-tool-policy.js';
 import { attestVerifiedToolResult } from '../src/secure/tool-result-attestation.js';
@@ -10,14 +13,24 @@ import { sealToolAuditLog, openToolAuditLog } from '../src/secure/sealed-tool-au
 const key=await makeSigningKey();
 const trust={format:'sumi-sum-verifier-trust',version:1,threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',key.publicKey)]};
 // Fictional input, held by this one trusted process. Do not infer actual votes.
-const tool=createRandomizedSumTool({school:[true,false,true,false,true],community:[true,true,false,false]},[key]);
+const password='fictional-randomized-passphrase';
+const prepared=await prepareRandomizedSumSnapshot({school:[true,false,true,false,true],community:[true,true,false,false]},password);
+const directory=await mkdtemp(join(tmpdir(),'sumi-random-snapshot-'));
+let stored;
+try {
+  const path=join(directory,'sample.json');
+  await writeFile(path,JSON.stringify(prepared.envelope),{flag:'wx',mode:0o600});
+  stored=JSON.parse(await readFile(path,'utf8'));
+} finally {await rm(directory,{recursive:true,force:true});}
+const tool=await openRandomizedSumSnapshot(stored,password,prepared.checkpoint,[key]);
+const restarted=await openRandomizedSumSnapshot(stored,password,prepared.checkpoint,[key]);
 const verifier=createVerifiedSumToolGateway(trust,'fictional-reader',RANDOMIZED_SUM_TOOL);
 for(const datasetId of ['school','community']){
   const first=await verifier.begin(datasetId), second=await verifier.begin(datasetId);
-  const [a,b]=await Promise.all([tool.run(first),tool.run(second)]);
+  const [a,b]=await Promise.all([tool.run(first),restarted.run(second)]);
   const [ra,rb]=await Promise.all([verifier.accept(first.request.requestId,a),verifier.accept(second.request.requestId,b)]);
   assert.equal(ra.sum,rb.sum);
-  console.log(`${datasetId}: ${ra.count} 件のランダム化回答の合計 ${ra.sum}。署名と合計証明を検証し、再要求では同じ抽選結果を再利用。`);
+  console.log(`${datasetId}: ${ra.count} 件のランダム化回答の合計 ${ra.sum}。暗号化ファイルからの別インスタンス復元後も同じ抽選結果を再利用。`);
 }
 const policyKey=await makeSigningKey(), auditKey=await makeSigningKey();
 const policyTrust={format:'sumi-agent-tool-policy-trust',version:1,threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',policyKey.publicKey)]};
@@ -42,4 +55,4 @@ assert.deepEqual(restored.checkpoint(),checkpoint);
 const wrongMode=new Map([...expectedRequests].map(([id,value])=>[id,{...value,tool:'sumi.sum.v1'}]));
 await assert.rejects(openToolAuditLog(encrypted,'fictional-demo-passphrase',checkpoint,wrongMode,trust,auditTrust));
 console.log('署名付き方式指定、署名付き監査記録、暗号化復元を検証。別方式としての復元は拒否。');
-console.log('入力はツール側の信頼された一つのプロセス内にあります。署名と証明は乱数の正しさを証明せず、再起動・他の公開をまたぐ予算管理もありません。');
+console.log('署名と合計証明は保存された合計と整合する合成値に対するもので、元の回答や乱数の正しさは証明しません。別に保持したチェックポイントと同じファイルの復元のみ再抽選を防ぎ、他の公開をまたぐ予算管理はありません。');
