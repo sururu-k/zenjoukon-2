@@ -5,7 +5,7 @@ import { createFHEOwner, createFHEEncryptor } from '../src/secure/fhe.js';
 import { signFheContribution, verifyFheContributions } from '../src/secure/signed-fhe-contributions.js';
 import { createContributorFheGate } from '../src/secure/contributor-fhe-gate.js';
 import { verifyFheAggregateAttestation } from '../src/secure/fhe-attestation.js';
-import { verifyFheRoundResult } from '../src/secure/verified-fhe-round.js';
+import { verifyFheRoundResult, createFheRoundVerifierSession } from '../src/secure/verified-fhe-round.js';
 
 test('only the expected signed contributors can enter an approved BFV aggregate', async () => {
   const owner=await createFHEOwner(), contributor=await createFHEEncryptor(owner.exportPublicKey(),owner.keyId);
@@ -40,6 +40,18 @@ test('only the expected signed contributors can enter an approved BFV aggregate'
     const alternate={...round,roundId:crypto.randomUUID()};
     const reSigned=await Promise.all(packets.map((p,i)=>signFheContribution(p,alternate,participants[i].participantId,keys[i])));
     await assert.rejects(verifyFheRoundResult({contributions:reSigned,attestation},alternate,request,participants,trust));
+    const verifier=createFheRoundVerifierSession(round,request,participants,trust);
+    await assert.rejects(verifier.verifyAndConsume({contributions:altered,attestation}));
+    const concurrent=await Promise.allSettled([verifier.verifyAndConsume({contributions:bundles,attestation}),verifier.verifyAndConsume({contributions:bundles,attestation})]);
+    assert.equal(concurrent.filter(x=>x.status==='fulfilled').length,1);
+    assert.equal(concurrent.filter(x=>x.status==='rejected').length,1);
+    await assert.rejects(verifier.verifyAndConsume({contributions:bundles,attestation}));
+    assert.equal(verifier.cancel(),false);
+    const cancelledVerifier=createFheRoundVerifierSession(round,request,participants,trust);
+    const pending=cancelledVerifier.verifyAndConsume({contributions:bundles,attestation});
+    assert.equal(cancelledVerifier.cancel(),true);
+    await assert.rejects(pending);
+    await assert.rejects(cancelledVerifier.verifyAndConsume({contributions:bundles,attestation}));
     const cancelled=await gate.approve(bundles);gate.cancel();
     assert.equal((await gate.agent.execute(cancelled.requestId)).status,'denied');
   } finally {contributor.destroy();owner.destroy();}
