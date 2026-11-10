@@ -16,7 +16,8 @@
     "verify:formal": "node scripts/check-formal.mjs",
     "demo:signed-policy": "node scripts/signed-policy-demo.mjs",
     "demo:bridge": "node scripts/verified-sum-bridge-demo.mjs",
-    "demo:survey-bridge": "node scripts/signed-survey-bridge-demo.mjs"
+    "demo:survey-bridge": "node scripts/signed-survey-bridge-demo.mjs",
+    "demo:survey-processes": "node scripts/process-survey-bridge.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",

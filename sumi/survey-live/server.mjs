@@ -29,6 +29,7 @@ async function readBody(req) {
 
 export async function startCollector(party, port, options = {}) {
   const collector = createVerifiedSurveyCollector(party, options.campaign ?? CAMPAIGN);
+  const exposeHeld = options.exposeHeld !== false;
   // Keep the key handles chosen at startup even if the caller later mutates
   // its configuration objects. The CryptoKey handles themselves are opaque.
   const signingKeys=options.signingKeys===undefined?null:[...options.signingKeys].map(pair=>Object.freeze({publicKey:pair.publicKey,privateKey:pair.privateKey}));
@@ -50,11 +51,11 @@ export async function startCollector(party, port, options = {}) {
       if (req.method === 'POST' && path === '/share') {
         const packet = await readBody(req);
         const count = await collector.receive(packet);
-        held.push({ batch: packet.batch, share: packet.value });
+        if (exposeHeld) held.push({ batch: packet.batch, share: packet.value });
         return json(res, 200, { count });
       }
       if (req.method === 'GET' && path === '/status') return json(res, 200, { party, count: collector.count, phase: collector.phase });
-      if (req.method === 'GET' && path === '/held') return json(res, 200, { party, held });
+      if (req.method === 'GET' && path === '/held' && exposeHeld) return json(res, 200, { party, held });
       if (req.method === 'POST' && path === '/publish') {
         let total;
         if(!signingKeys)total=await collector.publish();
