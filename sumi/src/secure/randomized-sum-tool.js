@@ -1,6 +1,7 @@
 import { canonical, hash } from '../crypto.js';
 import { randomizedResponse } from './dp.js';
 import { createSignedSum } from './verified-sum-bridge.js';
+import { RANDOMIZED_SUM_TOOL } from './verified-tool-gateway.js';
 
 const ownKeys = (v, keys) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v,k));
 const fail = () => { throw new Error('ランダム化集計の設定または依頼が不正です。'); };
@@ -21,7 +22,7 @@ export function createRandomizedSumTool(inputDatasets, signingKeys) {
   return Object.freeze({
     async run(inputCall) {
       const call = structuredClone(inputCall);
-      if (!ownKeys(call,['name','arguments','request']) || call.name !== 'sumi.sum.v1' || !ownKeys(call.arguments,['datasetId']) || typeof call.arguments.datasetId !== 'string' || !inputs.has(call.arguments.datasetId)) fail();
+      if (!ownKeys(call,['name','arguments','request']) || call.name !== RANDOMIZED_SUM_TOOL || !ownKeys(call.arguments,['datasetId']) || typeof call.arguments.datasetId !== 'string' || !inputs.has(call.arguments.datasetId)) fail();
       const expected = `sumi-tool-v1:${await hash(canonical({name:call.name,arguments:call.arguments}))}`;
       if (call.request?.purpose !== expected) fail();
       const id = call.arguments.datasetId;

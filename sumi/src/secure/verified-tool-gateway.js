@@ -3,22 +3,23 @@ import { createSumVerifierSession } from './verified-sum-bridge.js';
 
 // Local adapter, not an implementation of the MCP specification. The
 // dataset name is public and does not authenticate the underlying data.
-const TOOL = 'sumi.sum.v1';
+export const EXACT_SUM_TOOL = 'sumi.sum.v1';
+export const RANDOMIZED_SUM_TOOL = 'sumi.randomized-bit-sum.v1';
 const ownKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
 const invalid = () => { throw new Error('ツール呼び出しまたは検証結果が不正です。'); };
 
-export function createVerifiedSumToolGateway(trust, recipient) {
-  if (typeof recipient !== 'string' || !recipient.trim() || recipient.length > 120) invalid();
+export function createVerifiedSumToolGateway(trust, recipient, toolName = EXACT_SUM_TOOL) {
+  if (typeof recipient !== 'string' || !recipient.trim() || recipient.length > 120 || ![EXACT_SUM_TOOL,RANDOMIZED_SUM_TOOL].includes(toolName)) invalid();
   const verifier = createSumVerifierSession(trust);
   const issued = new Map();
   return Object.freeze({
     async begin(datasetId) {
       if (typeof datasetId !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(datasetId)) invalid();
       const args = Object.freeze({ datasetId });
-      const invocationHash = await hash(canonical({ name: TOOL, arguments: args }));
+      const invocationHash = await hash(canonical({ name: toolName, arguments: args }));
       const request = verifier.issue(`sumi-tool-v1:${invocationHash}`, recipient);
       issued.set(request.requestId, Object.freeze({ datasetId, request }));
-      return Object.freeze({ name: TOOL, arguments: args, request });
+      return Object.freeze({ name: toolName, arguments: args, request });
     },
     async accept(requestId, input) {
       const entry = issued.get(requestId);
@@ -31,7 +32,7 @@ export function createVerifiedSumToolGateway(trust, recipient) {
       if (proof?.sum !== response.result.sum || proof?.count !== response.result.count) invalid();
       const verified = await verifier.verifyAndConsume(response.evidence, requestId);
       if (verified.sum !== response.result.sum || verified.count !== response.result.count) invalid();
-      return Object.freeze({ name: TOOL, datasetId: entry.datasetId, sum: verified.sum, count: verified.count, verifiedSignatures: verified.verifiedSignatures });
+      return Object.freeze({ name: toolName, datasetId: entry.datasetId, sum: verified.sum, count: verified.count, verifiedSignatures: verified.verifiedSignatures });
     }
   });
 }

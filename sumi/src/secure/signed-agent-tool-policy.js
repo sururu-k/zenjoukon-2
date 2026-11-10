@@ -2,14 +2,16 @@ import { canonical, hash } from '../crypto.js';
 import { isWellFormedUnicode } from '../school-policy-contract.js';
 import { signQuorum, verifyQuorum } from './signature-quorum.js';
 import { createAgentVerifiedTool } from './agent-verified-tool.js';
+import { EXACT_SUM_TOOL, RANDOMIZED_SUM_TOOL } from './verified-tool-gateway.js';
 
-const DOMAIN = 'sumi/signed-agent-tool-policy/v1\n';
 const ownKeys = (v, keys) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
 const fail = () => { throw new Error('ツール設定、期待値または信頼鍵が不正です。'); };
-const bytes = p => new TextEncoder().encode(DOMAIN + canonical(p));
+const bytes = p => new TextEncoder().encode(`sumi/signed-agent-tool-policy/v${p.version}\n` + canonical(p));
 function policySnapshot(input) {
   const p = structuredClone(input);
-  if (!ownKeys(p, ['format','version','policyId','recipient','datasets','minimumCount']) || p.format !== 'sumi-agent-tool-policy' || p.version !== 1 || typeof p.policyId !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(p.policyId) || typeof p.recipient !== 'string' || !p.recipient.trim() || p.recipient.length > 120 || !isWellFormedUnicode(p.recipient) || !Array.isArray(p.datasets) || p.datasets.length < 1 || p.datasets.length > 50 || p.datasets.some(v => typeof v !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(v)) || new Set(p.datasets).size !== p.datasets.length || !Number.isInteger(p.minimumCount) || p.minimumCount < 3 || p.minimumCount > 1000) fail();
+  const v1 = p?.version === 1 && ownKeys(p, ['format','version','policyId','recipient','datasets','minimumCount']);
+  const v2 = p?.version === 2 && ownKeys(p, ['format','version','policyId','recipient','datasets','minimumCount','tool']) && [EXACT_SUM_TOOL,RANDOMIZED_SUM_TOOL].includes(p.tool);
+  if ((!v1 && !v2) || p.format !== 'sumi-agent-tool-policy' || typeof p.policyId !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(p.policyId) || typeof p.recipient !== 'string' || !p.recipient.trim() || p.recipient.length > 120 || !isWellFormedUnicode(p.recipient) || !Array.isArray(p.datasets) || p.datasets.length < 1 || p.datasets.length > 50 || p.datasets.some(v => typeof v !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(v)) || new Set(p.datasets).size !== p.datasets.length || !Number.isInteger(p.minimumCount) || p.minimumCount < 3 || p.minimumCount > 1000) fail();
   return p;
 }
 
@@ -34,6 +36,6 @@ export async function verifyAgentToolPolicy(input, expectedPolicyHash, trust) {
 export async function createAgentToolFromSignedPolicy({ signedPolicy, expectedPolicyHash, policyTrust, proofTrust, transport, recordCandidate }) {
   const signed = structuredClone(signedPolicy), anchors = structuredClone(policyTrust), evidenceTrust = structuredClone(proofTrust);
   const checked = await verifyAgentToolPolicy(signed, expectedPolicyHash, anchors);
-  const owner = createAgentVerifiedTool({ trust:evidenceTrust, recipient:checked.policy.recipient, datasets:checked.policy.datasets, minimumCount:checked.policy.minimumCount, transport, recordCandidate });
+  const owner = createAgentVerifiedTool({ trust:evidenceTrust, recipient:checked.policy.recipient, datasets:checked.policy.datasets, minimumCount:checked.policy.minimumCount, toolName:checked.policy.version === 2 ? checked.policy.tool : EXACT_SUM_TOOL, transport, recordCandidate });
   return Object.freeze({owner,policyHash:checked.policyHash,policySignatures:checked.verifiedSignatures});
 }

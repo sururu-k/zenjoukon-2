@@ -20,7 +20,7 @@ test('owner approval, proof and minimum count are required before agent receives
   assert.equal(f.calls,0);
   f.owner.approve('school',0);
   assert.equal((await f.owner.agent.run({datasetId:'community',revision:0})).status,'denied');
-  assert.deepEqual(await f.owner.agent.run({datasetId:'school',revision:0}),{status:'completed',datasetId:'school',sum:12,count:3,verifiedSignatures:2});
+  assert.deepEqual(await f.owner.agent.run({datasetId:'school',revision:0}),{status:'completed',tool:'sumi.sum.v1',datasetId:'school',sum:12,count:3,verifiedSignatures:2});
   assert.equal((await f.owner.agent.run({datasetId:'school',revision:0})).status,'denied');
   assert.equal(f.calls,1);
 });

@@ -3,10 +3,10 @@ import { createVerifiedSumToolGateway } from './verified-tool-gateway.js';
 // Trusted owner controls the dataset allowlist and approves one invocation.
 // The agent only receives the narrow run method. This is an API boundary,
 // not isolation from code that can access the owner or the transport directly.
-export function createAgentVerifiedTool({ trust, recipient, datasets, transport, minimumCount = 3, recordCandidate }) {
+export function createAgentVerifiedTool({ trust, recipient, datasets, transport, minimumCount = 3, recordCandidate, toolName }) {
   if (!Array.isArray(datasets) || datasets.length < 1 || datasets.length > 50 || datasets.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(id)) || new Set(datasets).size !== datasets.length || typeof transport !== 'function' || !Number.isInteger(minimumCount) || minimumCount < 3 || minimumCount > 1000 || (recordCandidate !== undefined && typeof recordCandidate !== 'function')) throw new Error('ツール設定が不正です。');
   const allowed = new Set(datasets);
-  const verifier = createVerifiedSumToolGateway(trust, recipient);
+  const verifier = createVerifiedSumToolGateway(trust, recipient, toolName);
   let revision = 0, approval = null;
   const denied = reason => Object.freeze({ status: 'denied', reason });
   const agent = Object.freeze({
@@ -30,7 +30,7 @@ export function createAgentVerifiedTool({ trust, recipient, datasets, transport,
           await recordCandidate({ datasetId, request: structuredClone(call.request), evidence: structuredClone(response.evidence) });
           if (!current()) return denied('確認が変更されました。');
         }
-        return Object.freeze({ status: 'completed', datasetId, sum: result.sum, count: result.count, verifiedSignatures: result.verifiedSignatures });
+        return Object.freeze({ status: 'completed', tool: result.name, datasetId, sum: result.sum, count: result.count, verifiedSignatures: result.verifiedSignatures });
       } catch {
         return denied('ツール結果を検証できませんでした。');
       } finally {

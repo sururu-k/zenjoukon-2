@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { canonical, hash, makeSigningKey } from '../src/crypto.js';
 import { createSignedSum } from '../src/secure/verified-sum-bridge.js';
 import { signAgentToolPolicy, verifyAgentToolPolicy, createAgentToolFromSignedPolicy } from '../src/secure/signed-agent-tool-policy.js';
+import { RANDOMIZED_SUM_TOOL } from '../src/secure/verified-tool-gateway.js';
+import { createRandomizedSumTool } from '../src/secure/randomized-sum-tool.js';
 
 async function fixture() {
   const admins=await Promise.all([makeSigningKey(),makeSigningKey()]), prover=await makeSigningKey();
@@ -24,6 +26,20 @@ test('signed policy controls agent datasets and minimum count', async () => {
   owner.approve('school',0);
   const result=await owner.agent.run({datasetId:'school',revision:0});
   assert.equal(result.status,'denied');assert.equal(Object.hasOwn(result,'sum'),false);
+});
+
+test('version 2 policy binds the selected randomized tool', async () => {
+  const f=await fixture(), prover=await makeSigningKey();
+  const policy={...f.policy,version:2,tool:RANDOMIZED_SUM_TOOL,minimumCount:3};
+  const signedPolicy=await signAgentToolPolicy(policy,f.admins), expectedPolicyHash=await hash(canonical(policy));
+  const proofTrust={format:'sumi-sum-verifier-trust',version:1,threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',prover.publicKey)]};
+  const tool=createRandomizedSumTool({school:[true,false,true]},[prover]);
+  const {owner}=await createAgentToolFromSignedPolicy({signedPolicy,expectedPolicyHash,policyTrust:f.policyTrust,proofTrust,transport:call=>tool.run(call)});
+  owner.approve('school',0);
+  const result=await owner.agent.run({datasetId:'school',revision:0});
+  assert.equal(result.status,'completed');assert.equal(result.tool,RANDOMIZED_SUM_TOOL);
+  const changed=structuredClone(signedPolicy);changed.policy.tool='sumi.sum.v1';
+  await assert.rejects(verifyAgentToolPolicy(changed,expectedPolicyHash,f.policyTrust));
 });
 
 test('tampered, stale, insufficient or untrusted policy is rejected before startup', async () => {
