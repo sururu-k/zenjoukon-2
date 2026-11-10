@@ -52,13 +52,20 @@ export function createVerifiedSurveyCollector(party,campaign){
   const packets=new Map();let state='open',received=0;
   return Object.freeze({
     get count(){return received;},get phase(){return state;},
-    async receive(input){
+    async receive(input,options={}){
       if(state!=='open')throw new Error('集計は確定しています。');
       const p=structuredClone(input);
       if(!await verifySurveyShare(p,party,campaign))throw new Error('回答シェアまたは証明が不正です。');
-      if(state!=='open'||packets.has(p.batch)||packets.size>=100)throw new Error('集計が確定済みか、回答が重複しています。');
-      packets.set(p.batch,{value:p.value,blind:p.blind,A:p.A,B:p.B,proof:p.proof});received++;
-      return received;
+      const fingerprint=options.idempotent?await hash(canonical(p)):null;
+      if(state!=='open')throw new Error('集計は確定しています。');
+      const existing=packets.get(p.batch);
+      if(existing){
+        if(options.idempotent&&existing.fingerprint===fingerprint)return options.receipt?{count:received,duplicate:true}:received;
+        throw new Error('回答が重複しています。');
+      }
+      if(packets.size>=100)throw new Error('回答数が上限に達しました。');
+      packets.set(p.batch,{value:p.value,blind:p.blind,A:p.A,B:p.B,proof:p.proof,fingerprint});received++;
+      return options.receipt?{count:received,duplicate:false}:received;
     },
     async publish(){
       if(state!=='open'||packets.size<3)throw new Error('未確定の回答が３件以上必要です。');

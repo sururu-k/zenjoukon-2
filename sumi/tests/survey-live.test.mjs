@@ -44,6 +44,27 @@ test('3件未満の集計、他担当宛てのシェア、重複した提出は�
   } finally { A.close(); }
 });
 
+test('応答が失われても同じシェアを再送でき、並行再送を二重計上しない', async () => {
+  const A = await startCollector('A', 0, { idempotentShares: true });
+  const B = await startCollector('B', 0, { idempotentShares: true });
+  try {
+    const ballots = await Promise.all([true, false, true].map(x => createVerifiedSurveyBallot(x, 'sumi-survey-live')));
+    // A accepted but its response was lost; B received nothing.
+    assert.equal((await call(A, '/share', ballots[0].A)).status, 200);
+    const retry = await Promise.all([call(A, '/share', ballots[0].A), call(A, '/share', ballots[0].A), call(B, '/share', ballots[0].B)]);
+    assert.deepEqual(retry.map(x => x.status), [200, 200, 200]);
+    assert.equal(retry[0].body.duplicate, true);
+    assert.equal((await call(A, '/share', { ...ballots[0].A, value: '0'.repeat(64) })).status, 400);
+    for (const ballot of ballots.slice(1)) {
+      await Promise.all([call(A, '/share', ballot.A), call(B, '/share', ballot.B)]);
+    }
+    assert.equal((await call(A, '/held')).body.held.length, 3);
+    const [a,b] = await Promise.all([call(A, '/publish', {}), call(B, '/publish', {})]);
+    assert.deepEqual(await combineVerifiedSurveyTotals(a.body,b.body), { count: 3, yes: 2, no: 1 });
+    assert.equal((await call(A, '/share', ballots[0].A)).status, 400);
+  } finally { A.close(); B.close(); }
+});
+
 test('実HTTPの各担当が集計へ署名し、別途指定した信頼鍵と回答証明を検証する', async () => {
   const [keyA,keyB]=await Promise.all([makeSigningKey(),makeSigningKey()]);
   const trust={format:'sumi-survey-collector-trust',version:1,

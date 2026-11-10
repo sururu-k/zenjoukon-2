@@ -54,9 +54,9 @@ export async function startCollector(party, port, options = {}) {
       const path = new URL(req.url, 'http://x').pathname;
       if (req.method === 'POST' && path === '/share') {
         const packet = await readBody(req);
-        const count = await collector.receive(packet);
-        if (exposeHeld) held.push({ batch: packet.batch, share: packet.value });
-        return json(res, 200, { count });
+        const receipt = await collector.receive(packet, { idempotent: options.idempotentShares === true, receipt: true });
+        if (exposeHeld && !receipt.duplicate) held.push({ batch: packet.batch, share: packet.value });
+        return json(res, 200, receipt);
       }
       if (req.method === 'GET' && path === '/status') return json(res, 200, { party, count: collector.count, phase: collector.phase });
       if (req.method === 'GET' && path === '/held' && exposeHeld) return json(res, 200, { party, held });
@@ -110,6 +110,6 @@ export async function startWeb(port) {
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
-  await startCollector('A', PORTS.A); await startCollector('B', PORTS.B); await startWeb(PORTS.web);
+  await startCollector('A', PORTS.A, { idempotentShares: true }); await startCollector('B', PORTS.B, { idempotentShares: true }); await startWeb(PORTS.web);
   console.log(`回答する画面: ${ORIGIN}/vote.html\n集める人の画面: ${ORIGIN}/organizer.html\n集計担当A: 127.0.0.1:${PORTS.A}  集計担当B: 127.0.0.1:${PORTS.B}（同一プロセスのデモ）`);
 }
