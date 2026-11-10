@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { makeSigningKey } from '../src/crypto.js';
 import { createFHEOwner, createFHEEncryptor } from '../src/secure/fhe.js';
-import { verifyFheAggregateAttestation } from '../src/secure/fhe-attestation.js';
+import { verifyFheRoundResult } from '../src/secure/verified-fhe-round.js';
 import { signFheContribution, verifyFheContributions } from '../src/secure/signed-fhe-contributions.js';
 import { createContributorFheGate } from '../src/secure/contributor-fhe-gate.js';
 
@@ -26,9 +26,9 @@ try {
     assert.equal(accepted.status,'completed');
     const envelope=accepted.envelope;
     assert.equal((await gate.agent.execute(request.requestId)).status,'denied');
-    const result=await verifyFheAggregateAttestation(envelope,checked.packets,request,trust);
+    const result=await verifyFheRoundResult({contributions:bundles,attestation:envelope},round,request,roster,trust);
     const modified=structuredClone(envelope);modified.payload.sum++;
-    await assert.rejects(verifyFheAggregateAttestation(modified,checked.packets,request,trust));
+    await assert.rejects(verifyFheRoundResult({contributions:bundles,attestation:modified},round,request,roster,trust));
     console.log(`${dataset}: ${checked.participants} 件の入力署名、BFV 暗号文の再加算、合計 ${result.sum} に対する ${result.verifiedSignatures} 件の署名を検証。`);
   }
   console.log('事前に確認した入力と受取先だけを一度復号。各入力者は公開鍵だけで暗号化します（同一プロセスの模擬）。復号値の正しさは署名者を信頼します。');

@@ -27,10 +27,10 @@ export function createFheDecryptionGate({owner,signingKeys,datasets,recipients,m
   });
   return Object.freeze({
     agent,
-    async approve(inputPackets,datasetId,recipient){
+    async approve(inputPackets,datasetId,recipient,requestId=crypto.randomUUID()){
       const packets=structuredClone(inputPackets),revision=++generation;approval=null;
       if(!allowedDatasets.has(datasetId)||!allowedRecipients.has(recipient))throw new Error('対象または受取先が許可されていません。');
-      const request=await createFheRequest(packets,datasetId,recipient,crypto.randomUUID());
+      const request=await createFheRequest(packets,datasetId,recipient,requestId);
       if(generation!==revision||request.keyId!==owner.keyId||request.count<minimumCount)throw new Error('依頼が変更されたか、鍵または件数が不正です。');
       approval={request,generation:revision,state:'ready'};
       return request;

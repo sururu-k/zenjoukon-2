@@ -22,7 +22,9 @@ export function createContributorFheGate({owner,signingKeys,expectedRound,partic
       const snapshot=structuredClone(bundles),revision=++generation;approved=null;gate.cancel();
       const checked=await verifyFheContributions(snapshot,round,roster);
       if(generation!==revision)throw new Error('確認が取り消されました。');
-      const request=await gate.approve(checked.packets,round.datasetId,round.recipient);
+      // The signed round ID is also the decryption request ID, so the
+      // attested aggregate cannot be transplanted to another round.
+      const request=await gate.approve(checked.packets,round.datasetId,round.recipient,round.roundId);
       if(generation!==revision)throw new Error('確認が取り消されました。');
       approved={request,packets:checked.packets,generation:revision,state:'ready'};
       return request;

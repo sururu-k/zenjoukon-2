@@ -5,6 +5,7 @@ import { createFHEOwner, createFHEEncryptor } from '../src/secure/fhe.js';
 import { signFheContribution, verifyFheContributions } from '../src/secure/signed-fhe-contributions.js';
 import { createContributorFheGate } from '../src/secure/contributor-fhe-gate.js';
 import { verifyFheAggregateAttestation } from '../src/secure/fhe-attestation.js';
+import { verifyFheRoundResult } from '../src/secure/verified-fhe-round.js';
 
 test('only the expected signed contributors can enter an approved BFV aggregate', async () => {
   const owner=await createFHEOwner(), contributor=await createFHEEncryptor(owner.exportPublicKey(),owner.keyId);
@@ -30,7 +31,15 @@ test('only the expected signed contributors can enter an approved BFV aggregate'
     const calls=await Promise.all([gate.agent.execute(request.requestId),gate.agent.execute(request.requestId)]);
     assert.equal(calls.filter(x=>x.status==='completed').length,1);
     const trust={format:'sumi-fhe-decryptor-trust',version:1,threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',signer.publicKey)]};
-    assert.equal((await verifyFheAggregateAttestation(calls.find(x=>x.status==='completed').envelope,verified.packets,request,trust)).sum,6);
+    const attestation=calls.find(x=>x.status==='completed').envelope;
+    assert.equal((await verifyFheAggregateAttestation(attestation,verified.packets,request,trust)).sum,6);
+    const whole=await verifyFheRoundResult({contributions:bundles,attestation},round,request,participants,trust);
+    assert.equal(whole.sum,6);assert.equal(whole.participants,3);assert.equal(whole.roundId,round.roundId);
+    await assert.rejects(verifyFheRoundResult({contributions:bundles,attestation},round,{...request,recipient:'other'},participants,trust));
+    await assert.rejects(verifyFheRoundResult({contributions:altered,attestation},round,request,participants,trust));
+    const alternate={...round,roundId:crypto.randomUUID()};
+    const reSigned=await Promise.all(packets.map((p,i)=>signFheContribution(p,alternate,participants[i].participantId,keys[i])));
+    await assert.rejects(verifyFheRoundResult({contributions:reSigned,attestation},alternate,request,participants,trust));
     const cancelled=await gate.approve(bundles);gate.cancel();
     assert.equal((await gate.agent.execute(cancelled.requestId)).status,'denied');
   } finally {contributor.destroy();owner.destroy();}
