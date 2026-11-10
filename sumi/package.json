@@ -26,7 +26,8 @@
     "demo:fhe-key-backup": "node scripts/fhe-key-backup-demo.mjs",
     "demo:fhe-two-party-backup": "node scripts/fhe-two-party-backup-demo.mjs",
     "demo:fhe-three-party-backup": "node scripts/fhe-three-party-backup-demo.mjs",
-    "demo:capability-gate": "node scripts/capability-gate-demo.mjs"
+    "demo:capability-gate": "node scripts/capability-gate-demo.mjs",
+    "demo:fhe-verifiable-backup": "node scripts/fhe-verifiable-backup-demo.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",
