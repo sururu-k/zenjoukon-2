@@ -35,3 +35,5 @@ DPでは、ランダム化した回答数から人数を推計します。真の
 依存ライブラリはバージョンを固定し、`package-lock.json` を管理しています。基礎演算には [noble-curves](https://github.com/paulmillr/noble-curves)、[noble-hashes](https://github.com/paulmillr/noble-hashes)、[node-seal](https://github.com/s0l0ist/node-seal) / [Microsoft SEAL](https://github.com/microsoft/SEAL) を使用します。ライセンスはビルド結果の `licenses/` に同梱します。
 
 `npm test` で改変したZK証明の拒否、MPCの正常な復元と重複・担当違いの拒否、ランダム化回答の全8条件の確率比、実際のBFV暗号文の加算・復号・違う鍵の拒否を検査します。Leanの11定理は認可と情報流のモデルを対象とし、これらの暗号プロトコルの安全性を証明したものではありません。
+`npm run demo:verified-tool` は合計証明をローカル HTTP ツールへつなぐ例です。検証側がツール名と対象データ ID を依頼に結び付け、別途指定した署名鍵と証明を検証し、表示用の結果が証明と一致した場合のみ返します。依頼の再利用は同一プロセスの検証セッション内で拒否します。データ ID は公開され、その ID が実際のデータを表すこと、入力の真実性や範囲、ツール環境の真正性は証明しません。独自形式の接続例であり、MCP 準拠や暗号実装の監査を主張するものではありません。
+
