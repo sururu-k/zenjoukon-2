@@ -56,6 +56,8 @@ GitHubでは PowerPoint を直接表示できないため、ダウンロード�
 
 ## ブラウザで試す
 
+[比較から各機能までをたどる Sumi のデモを見る](https://sururu-k.github.io/zenjoukon-2/showcase/)：先頭だけの検査と全文検索を比較し、文書証明・各機能・検証範囲を紹介します。画面演出と実際の機能は区別して表示しています。
+
 [文書の条件を証明するデモを開く](https://sururu-k.github.io/zenjoukon-2/document-proof/)（インストール不要・架空データ専用）
 
 1. 例文と公開してよい禁止語を確認し、「証明を作成する」を押します。

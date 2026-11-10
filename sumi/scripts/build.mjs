@@ -11,6 +11,9 @@ await cp(new URL('../src/', import.meta.url), new URL('../dist/', import.meta.ur
 // Keep the same verified visualization available locally and on Pages.
 await import('./check-lean-visualization.mjs');
 await cp(new URL('../visualization/lean/', import.meta.url), new URL('../dist/lean/', import.meta.url), { recursive: true });
+await mkdir(new URL('../dist/showcase/', import.meta.url), {recursive:true});
+await cp(new URL('../showcase/index.html', import.meta.url), new URL('../dist/showcase/index.html', import.meta.url));
+await build({entryPoints:[new URL('../showcase/demo.tsx',import.meta.url).pathname],bundle:true,format:'esm',platform:'browser',target:'es2022',outfile:new URL('../dist/showcase/demo.js',import.meta.url).pathname,jsx:'automatic'});
 await build({entryPoints:['privacy-lab.js','proof-studio.js'].map(name=>new URL('../src/'+name,import.meta.url).pathname),bundle:true,format:'esm',platform:'browser',target:'es2022',outdir:new URL('../dist/',import.meta.url).pathname,external:['module','node:module','node:fs','node:fs/promises','node:url','node:path','node:crypto']});
 const css=await build({entryPoints:[new URL('../src/suite.css',import.meta.url).pathname],outfile:new URL('../dist/suite.css',import.meta.url).pathname});
 if(css.warnings.length)throw new Error('製品画面のCSSに構文の警告があります。');
