@@ -7,6 +7,7 @@ import { canExecuteAgent } from '../src/agent-access.js';
 
 export const THEOREMS=Object.freeze(['unknown_denied','stale_denied','unregistered_denied','plaintext_requires_public_review','draft_requires_encryption','inference_requires_local_consent','denied_emits_nothing','plaintext_depends_only_on_release','external_plaintext_noninterference','trace_plaintext_noninterference','only_approved_plaintext'].map(n=>'Sumi.'+n));
 export const AGENT_THEOREMS=Object.freeze(['fresh','approval','policy','target','supported'].map(n=>'SumiAgent.execute_requires_'+n));
+export const RELEASE_THEOREMS=Object.freeze(['edit_revokes','destination_change_revokes','unapproved_emits_nothing','wrong_destination_emits_nothing','edit_then_release_emits_nothing','emitted_is_current_and_approved','every_emission_is_current_and_approved'].map(n=>'SumiRelease.'+n));
 
 // Leanで検査した定義を全入力で評価し、実際に使うJS判定との有限領域での一致を検査する。
 export function checkFormal(){
@@ -33,9 +34,15 @@ const agentAxioms=[...agent.stdout.matchAll(/'([^']+)' (?:depends on axioms: \[(
 assert.deepEqual(agentAxioms.map(m=>m[1]).sort(),[...AGENT_THEOREMS].sort());
 for(const [,,list=''] of agentAxioms)for(const name of list.split(',').map(s=>s.trim()).filter(Boolean))assert.ok(['propext','Classical.choice','Quot.sound'].includes(name),`追加公理: ${name}`);
 for(let flags=0;flags<32;flags++)assert.equal(canExecuteAgent({fresh:!!(flags&1),approved:!!(flags&2),allowed:!!(flags&4),target:!!(flags&8),supported:!!(flags&16)}),agentBits[flags]==='1');
-const report={theorems:THEOREMS,axioms:axioms.map(m=>({theorem:m[1],axioms:(m[2]||'').split(',').map(s=>s.trim()).filter(Boolean)})),authorizationCases:i,channelCases:i,agent:{theorems:AGENT_THEOREMS,axioms:agentAxioms.map(m=>({theorem:m[1],axioms:(m[2]||'').split(',').map(s=>s.trim()).filter(Boolean)})),selectorCases:32,fullRuntimeProof:false},refinement:'finite-selector-equivalence',fullJavaScriptProof:false,completeSystemProof:false};
+const release=spawnSync('lean',['Release.lean'],{cwd:fileURLToPath(new URL('../formal/',import.meta.url)),encoding:'utf8',maxBuffer:2_000_000});
+if(release.error||release.status!==0){process.stderr.write(release.stdout||'');process.stderr.write(release.stderr||'');throw release.error||new Error('出力状態モデルのLean検査に失敗しました。');}
+const releaseAxioms=[...release.stdout.matchAll(/'([^']+)' (?:depends on axioms: \[([^\]]*)\]|does not depend on any axioms)/g)];
+assert.deepEqual(releaseAxioms.map(m=>m[1]).sort(),[...RELEASE_THEOREMS].sort());
+for(const [,,list=''] of releaseAxioms)for(const name of list.split(',').map(s=>s.trim()).filter(Boolean))assert.ok(['propext','Classical.choice','Quot.sound'].includes(name),`追加公理: ${name}`);
+const report={theorems:THEOREMS,axioms:axioms.map(m=>({theorem:m[1],axioms:(m[2]||'').split(',').map(s=>s.trim()).filter(Boolean)})),authorizationCases:i,channelCases:i,agent:{theorems:AGENT_THEOREMS,axioms:agentAxioms.map(m=>({theorem:m[1],axioms:(m[2]||'').split(',').map(s=>s.trim()).filter(Boolean)})),selectorCases:32,fullRuntimeProof:false},release:{theorems:RELEASE_THEOREMS,axioms:releaseAxioms.map(m=>({theorem:m[1],axioms:(m[2]||'').split(',').map(s=>s.trim()).filter(Boolean)})),runtimeCorrespondenceProved:false},refinement:'finite-selector-equivalence',fullJavaScriptProof:false,completeSystemProof:false};
 console.log(`Lean: ${THEOREMS.length}の定理を検査。認可と情報流のJavaScript対応: 各${i.toLocaleString()}条件。`);
 console.log(`エージェント：${AGENT_THEOREMS.length}定理、実行判定のJavaScript対応: 32条件。`);
+console.log(`出力状態モデル：${RELEASE_THEOREMS.length}定理を検査。実装との対応は未証明。`);
 return report;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)checkFormal();
