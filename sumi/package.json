@@ -20,7 +20,9 @@
     "demo:survey-processes": "node scripts/process-survey-bridge.mjs",
     "demo:verified-tool": "node scripts/verified-tool-demo.mjs",
     "demo:randomized-tool": "node scripts/randomized-tool-demo.mjs",
-    "demo:fhe-attestation": "node scripts/fhe-attestation-demo.mjs"
+    "demo:fhe-attestation": "node scripts/fhe-attestation-demo.mjs",
+    "fhe:example": "node scripts/fhe-example-files.mjs",
+    "fhe:verify": "node scripts/fhe-verify.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",
