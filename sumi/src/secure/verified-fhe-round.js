@@ -1,5 +1,6 @@
 import { verifyFheContributions } from './signed-fhe-contributions.js';
 import { verifyFheAggregateAttestation } from './fhe-attestation.js';
+import { verifierTransition } from './verifier-state.js';
 
 // Expected round, request, roster and decryptor trust are external inputs.
 // A correct BFV decrypt is attested by the decryptor, not proved in ZK.
@@ -17,17 +18,18 @@ export function createFheRoundVerifierSession(expectedRound,expectedRequest,expe
   const round=structuredClone(expectedRound),request=structuredClone(expectedRequest),participants=structuredClone(expectedParticipants),trust=structuredClone(decryptorTrust);
   let state='ready';
   return Object.freeze({
-    cancel(){if(state==='consumed'||state==='cancelled')return false;state='cancelled';return true;},
+    cancel(){const next=verifierTransition(state,'cancel');const changed=next.state!==state;state=next.state;return changed;},
     async verifyAndConsume(input){
       if(state!=='ready')throw new Error('集計回は使用済み、処理中または取消済みです。');
-      state='verifying';
+      state=verifierTransition(state,'begin').state;
       try {
         const verified=await verifyFheRoundResult(input,round,request,participants,trust);
-        if(state!=='verifying')throw new Error('検証中に集計回が取り消されました。');
-        state='consumed';
+        const next=verifierTransition(state,'success');
+        state=next.state;
+        if(!next.accepted)throw new Error('検証中に集計回が取り消されました。');
         return verified;
       } catch(error) {
-        if(state==='verifying')state='ready';
+        state=verifierTransition(state,'failure').state;
         throw error;
       }
     }
