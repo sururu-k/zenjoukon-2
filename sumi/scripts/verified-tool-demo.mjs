@@ -3,10 +3,10 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { makeSigningKey } from '../src/crypto.js';
+import { makeSigningKey, hash, canonical } from '../src/crypto.js';
 import { createSignedSum } from '../src/secure/verified-sum-bridge.js';
 import { createVerifiedSumToolGateway } from '../src/secure/verified-tool-gateway.js';
-import { createAgentVerifiedTool } from '../src/secure/agent-verified-tool.js';
+import { signAgentToolPolicy, createAgentToolFromSignedPolicy } from '../src/secure/signed-agent-tool-policy.js';
 import { attestVerifiedToolResult, verifyToolResultAttestation } from '../src/secure/tool-result-attestation.js';
 import { createVerifiedToolAuditLog, verifyToolAuditLog } from '../src/secure/verified-tool-audit-log.js';
 import { sealToolAuditLog, openToolAuditLog } from '../src/secure/sealed-tool-audit-log.js';
@@ -47,7 +47,12 @@ try {
   const auditor = await makeSigningKey();
   const auditTrust = { format: 'sumi-tool-audit-trust', version: 1, threshold: 1, publicKeys: [await crypto.subtle.exportKey('jwk', auditor.publicKey)] };
   const auditLog = createVerifiedToolAuditLog(trust, auditTrust);
-  const owner = createAgentVerifiedTool({ trust, recipient: 'local-agent-verifier', datasets: ['school', 'community'], transport: async call => {
+  const policyKeys = await Promise.all([makeSigningKey(), makeSigningKey()]);
+  const policy = { format:'sumi-agent-tool-policy', version:1, policyId:'example-policy-2026', recipient:'local-agent-verifier', datasets:['school','community'], minimumCount:3 };
+  const expectedPolicyHash = await hash(canonical(policy));
+  const policyTrust = { format:'sumi-agent-tool-policy-trust', version:1, threshold:2, publicKeys:await Promise.all(policyKeys.map(key=>crypto.subtle.exportKey('jwk',key.publicKey))) };
+  const signedPolicy = await signAgentToolPolicy(policy, policyKeys);
+  const {owner} = await createAgentToolFromSignedPolicy({ signedPolicy, expectedPolicyHash, policyTrust, proofTrust:trust, transport: async call => {
     sends++;
     const response = await fetch(`http://127.0.0.1:${server.address().port}/sum`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(call), signal: AbortSignal.timeout(10000) });
     if (!response.ok) throw new Error('tool failure');
@@ -58,6 +63,7 @@ try {
     const record = await attestVerifiedToolResult(datasetId, request, evidence, trust, [auditor]);
     await auditLog.append(datasetId, request, evidence, record);
   } });
+  console.log('別に指定した設定ハッシュと管理鍵２件の署名を確認して公開条件を適用。');
   assert.equal((await owner.agent.run({ datasetId: 'school', revision: 0 })).status, 'denied');
   assert.equal(sends, 0);
   owner.approve('school', 0); // Simulated owner approval for fictional data.
