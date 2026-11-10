@@ -4,6 +4,7 @@ import { stdin, stdout } from 'node:process';
 import { SCHOOL_POLICY, assessSchoolPolicy, generateConfigurationDraft } from '../src/school-policy.js';
 import { validateSchoolPolicy } from '../src/school-policy-contract.js';
 import { inspectStoragePath } from './storage-inspection.mjs';
+import { verifySchoolPolicy } from '../src/secure/signed-school-policy.js';
 
 async function walkthrough(policy){
   const observations=Object.create(null),controls=policy.controls;
@@ -31,7 +32,15 @@ async function walkthrough(policy){
 try {
   const args=process.argv.slice(2);
   let policy=SCHOOL_POLICY;
-  if(args[0]==='--policy'){
+  if(args[0]==='--signed-policy'){
+    if(!args[1]||args[1].startsWith('--')||args[2]!=='--policy-trust'||!args[3]||args[3].startsWith('--'))throw new Error('署名付き設定には --signed-policy と --policy-trust を両方指定してください。');
+    const signedText=await readFile(args[1],'utf8'),trustText=await readFile(args[3],'utf8');
+    if(Buffer.byteLength(signedText,'utf8')>1024*1024||Buffer.byteLength(trustText,'utf8')>1024*1024)throw new Error('署名付き設定と信頼設定はそれぞれ1 MiB以内にしてください。');
+    const checked=await verifySchoolPolicy(JSON.parse(signedText),JSON.parse(trustText));
+    policy=checked.policy.assessment;
+    process.stderr.write(`共通設定：別途指定した信頼鍵 ${checked.verifiedSignatures}件を検証（必要数 ${checked.threshold}件）。鍵の本人確認・失効は別途必要です。\n`);
+    args.splice(0,4);
+  }else if(args[0]==='--policy'){
     if(!args[1] || args[1].startsWith('--'))throw new Error('共通設定のJSONファイルを指定してください。');
     const policyText=await readFile(args[1],'utf8');
     if(Buffer.byteLength(policyText,'utf8')>1024*1024)throw new Error('共通設定は1 MiB以内にしてください。');
@@ -43,7 +52,7 @@ try {
     (['check','inspect-path'].includes(command)&&(!file||extra))||
     (['guide','draft'].includes(command)&&(file||extra))||
     (command==='review'&&(!file||!extra));
-  if(invalid)throw new Error('使い方: node scripts/school-audit.mjs [--policy 共通設定.json] guide | check <確認結果.json> | draft | inspect-path <保存先> | review <確認結果.json> <保存先>');
+  if(invalid)throw new Error('使い方: node scripts/school-audit.mjs [--policy 共通設定.json | --signed-policy 署名付き設定.json --policy-trust 信頼設定.json] guide | check <確認結果.json> | draft | inspect-path <保存先> | review <確認結果.json> <保存先>');
   if(command==='guide')await walkthrough(policy);
   else if(command==='inspect-path'){
     const output=await inspectStoragePath(file);

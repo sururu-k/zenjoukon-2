@@ -17,7 +17,7 @@ async function fixture(){
   return {a,b,outsider,trust,signed};
 }
 
-test('別経路の信頼鍵による2人分の署名を検証し、変更した設定を拒否する',async()=>{
+test('別経路の信頼鍵による2鍵の署名を検証し、変更した設定を拒否する',async()=>{
   const {signed,trust,a,b,outsider}=await fixture();
   const checked=await verifySchoolPolicy(signed,trust);
   assert.equal(checked.verifiedSignatures,2);assert.equal(checked.threshold,2);
@@ -50,9 +50,12 @@ test('エージェントは署名付き設定を検証してから共通禁止�
     const run=(...args)=>spawnSync(process.execPath,['scripts/school-agent.mjs',doc,'read',...args],{cwd:root,input:'yes\n',encoding:'utf8'});
     const ok=run('--signed-policy',signedPath,'--policy-trust',trustPath);
     assert.equal(ok.status,0,ok.stderr);assert.match(ok.stdout,/信頼鍵 2件を検証/);assert.doesNotMatch(ok.stdout,/山田/);
+    const audit=()=>spawnSync(process.execPath,['scripts/school-audit.mjs','--signed-policy',signedPath,'--policy-trust',trustPath,'draft'],{cwd:root,encoding:'utf8'});
+    const checkedAudit=audit();assert.equal(checkedAudit.status,0,checkedAudit.stderr);assert.equal(JSON.parse(checkedAudit.stdout).format,'sumi-configuration-draft');
     const changed=structuredClone(signed);changed.policy.documentProof.forbidden=['別の名前'];await writeFile(signedPath,JSON.stringify(changed));
     const invalid=run('--signed-policy',signedPath,'--policy-trust',trustPath);
     assert.equal(invalid.status,1);assert.doesNotMatch(invalid.stdout,/エージェントに渡す文書/);
+    assert.equal(audit().status,1);
     assert.equal(run('--signed-policy',signedPath).status,1);
     assert.equal(run('--policy',signedPath,'--signed-policy',signedPath,'--policy-trust',trustPath).status,1);
   }finally{await rm(dir,{recursive:true,force:true});}
