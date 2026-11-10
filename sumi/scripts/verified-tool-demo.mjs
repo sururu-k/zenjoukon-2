@@ -4,6 +4,7 @@ import { makeSigningKey } from '../src/crypto.js';
 import { createSignedSum } from '../src/secure/verified-sum-bridge.js';
 import { createVerifiedSumToolGateway } from '../src/secure/verified-tool-gateway.js';
 import { createAgentVerifiedTool } from '../src/secure/agent-verified-tool.js';
+import { attestVerifiedToolResult, verifyToolResultAttestation } from '../src/secure/tool-result-attestation.js';
 
 // Fictional local tool. The independent verifier chooses its trust keys and
 // request; the HTTP server is not trusted merely because it returned a sum.
@@ -37,12 +38,14 @@ try {
     console.log(`${dataset}: ${verified.count} 件の合計 ${verified.sum}。結果と証明・${verified.verifiedSignatures}鍵の署名が一致しました。`);
   }
   console.log('結果の改変と同一依頼の再利用を拒否。入力データの真実性や取得元は証明しません。');
-  let sends = 0;
+  let sends = 0, capturedCall, capturedResponse;
   const owner = createAgentVerifiedTool({ trust, recipient: 'local-agent-verifier', datasets: ['school', 'community'], transport: async call => {
     sends++;
     const response = await fetch(`http://127.0.0.1:${server.address().port}/sum`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(call), signal: AbortSignal.timeout(10000) });
     if (!response.ok) throw new Error('tool failure');
-    return response.json();
+    capturedCall = call;
+    capturedResponse = await response.json();
+    return capturedResponse;
   } });
   assert.equal((await owner.agent.run({ datasetId: 'school', revision: 0 })).status, 'denied');
   assert.equal(sends, 0);
@@ -52,6 +55,14 @@ try {
   assert.equal((await owner.agent.run({ datasetId: 'school', revision: 0 })).status, 'denied');
   assert.equal(sends, 1);
   console.log(`エージェント: 確認前は通信せず拒否。模擬承認後に ${result.count} 件の合計 ${result.sum} を検証し、承認の再利用を拒否。`);
+  const auditor = await makeSigningKey();
+  const auditTrust = { format: 'sumi-tool-audit-trust', version: 1, threshold: 1, publicKeys: [await crypto.subtle.exportKey('jwk', auditor.publicKey)] };
+  const record = await attestVerifiedToolResult('school', capturedCall.request, capturedResponse.evidence, trust, [auditor]);
+  const checked = await verifyToolResultAttestation(record, 'school', capturedCall.request, capturedResponse.evidence, trust, auditTrust);
+  assert.equal(checked.sum, result.sum);
+  const forged = structuredClone(record); forged.payload.sum++;
+  await assert.rejects(verifyToolResultAttestation(forged, 'school', capturedCall.request, capturedResponse.evidence, trust, auditTrust));
+  console.log('署名付き結果記録と元の証明を独立した信頼鍵で検証し、記録の改変を拒否。');
 } finally {
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
