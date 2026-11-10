@@ -6,6 +6,8 @@ Node.js と、このリポジトリの依存パッケージが必要です。`su
 
 `npm run demo:signed-policy` は、２つの一時鍵で架空の共通設定に署名し、別の信頼鍵設定に対して検証したうえで点検とエージェントの加工へ渡す実験です。ルール上の判定記録にも署名します。設定や署名を改変すると拒否しますが、判定記録は操作が実行された事実の証明ではありません。鍵の本人確認・配布・失効や、古い有効な設定の再利用防止は行わず、複数署名は閾値暗号ではありません。
 
+`npm run demo:bridge` は、一般向けと学校向けの架空データで、合計のゼロ知識証明と２鍵の署名を組み合わせます。検証者が別途指定した用途・依頼ID・受取先と信頼鍵を使い、合計の改変や別の受取先への差し替えを拒否します。署名者の身元、入力の真実性、各値の範囲、使用済みIDの再送防止は証明しません。
+
 ```sh
 node scripts/sumi.mjs write examples/write.json /tmp/sumi-write.json
 node scripts/sumi.mjs gate examples/gate.txt /tmp/sumi-gate.json
