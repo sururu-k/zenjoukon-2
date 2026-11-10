@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { makeSigningKey } from '../src/crypto.js';
 import { createSignedSum } from '../src/secure/verified-sum-bridge.js';
 import { createVerifiedSumToolGateway } from '../src/secure/verified-tool-gateway.js';
 import { createAgentVerifiedTool } from '../src/secure/agent-verified-tool.js';
 import { attestVerifiedToolResult, verifyToolResultAttestation } from '../src/secure/tool-result-attestation.js';
 import { createVerifiedToolAuditLog, verifyToolAuditLog } from '../src/secure/verified-tool-audit-log.js';
+import { sealToolAuditLog, openToolAuditLog } from '../src/secure/sealed-tool-audit-log.js';
 
 // Fictional local tool. The independent verifier chooses its trust keys and
 // request; the HTTP server is not trusted merely because it returned a sum.
@@ -74,6 +78,18 @@ try {
   const truncated = structuredClone(snapshot); truncated.entries.pop();
   await assert.rejects(verifyToolAuditLog(truncated, checkpoint, expectedRequests, trust, auditTrust));
   console.log('結果を返す前に記録をハッシュで連結し、別に保持したチェックポイントで削除を検出。');
+  const directory = await mkdtemp(join(tmpdir(), 'sumi-audit-example-'));
+  try {
+    const path = join(directory, 'encrypted-audit.json');
+    const password = 'fictional-demo-passphrase';
+    const sealed = await sealToolAuditLog(snapshot, checkpoint, expectedRequests, trust, auditTrust, password);
+    await writeFile(path, JSON.stringify(sealed), { mode: 0o600, flag: 'wx' });
+    const stored = JSON.parse(await readFile(path, 'utf8'));
+    const restored = await openToolAuditLog(stored, password, checkpoint, expectedRequests, trust, auditTrust);
+    assert.deepEqual(restored.checkpoint(), checkpoint);
+    await assert.rejects(openToolAuditLog(stored, 'wrong-demo-passphrase', checkpoint, expectedRequests, trust, auditTrust));
+    console.log('暗号化ファイルから別インスタンスに復元し、独立したチェックポイントと署名・証明を再検証。');
+  } finally { await rm(directory, { recursive: true, force: true }); }
 } finally {
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
