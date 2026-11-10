@@ -1,0 +1,1 @@
+window.SUMI_POLICY_REPORT = window.LDR.DEFAULT_REPORT;
