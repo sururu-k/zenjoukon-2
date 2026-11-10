@@ -4,13 +4,13 @@ import { makeSigningKey } from '../src/crypto.js';
 import { createSignedSum } from '../src/secure/verified-sum-bridge.js';
 import { createAgentVerifiedTool } from '../src/secure/agent-verified-tool.js';
 
-async function fixture(transportFactory) {
+async function fixture(transportFactory, recordCandidate) {
   const keys = await Promise.all([makeSigningKey(), makeSigningKey()]);
   const trust = {format:'sumi-sum-verifier-trust',version:1,threshold:2,publicKeys:await Promise.all(keys.map(k=>crypto.subtle.exportKey('jwk',k.publicKey)))};
   let calls=0;
   const make = async (call, values=[3,4,5]) => {const evidence=await createSignedSum(values,call.request,keys);return {result:{sum:evidence.payload.proof.sum,count:evidence.payload.proof.count},evidence};};
   const transport=transportFactory ? transportFactory(make) : make;
-  const owner=createAgentVerifiedTool({trust,recipient:'agent-verifier',datasets:['school','community'],transport:async call=>{calls++;return transport(call);}});
+  const owner=createAgentVerifiedTool({trust,recipient:'agent-verifier',datasets:['school','community'],recordCandidate,transport:async call=>{calls++;return transport(call);}});
   return {owner,get calls(){return calls;}};
 }
 
@@ -23,6 +23,36 @@ test('owner approval, proof and minimum count are required before agent receives
   assert.deepEqual(await f.owner.agent.run({datasetId:'school',revision:0}),{status:'completed',datasetId:'school',sum:12,count:3,verifiedSignatures:2});
   assert.equal((await f.owner.agent.run({datasetId:'school',revision:0})).status,'denied');
   assert.equal(f.calls,1);
+});
+
+test('configured audit must finish successfully before output is returned', async () => {
+  let release, arrived, recorded;
+  const waiting=new Promise(resolve=>{arrived=resolve;});
+  const f=await fixture(undefined,async item=>{recorded=item;arrived();await new Promise(resolve=>{release=resolve;});});
+  f.owner.approve('school',0);
+  let completed=false;
+  const pending=f.owner.agent.run({datasetId:'school',revision:0}).then(result=>{completed=true;return result;});
+  await waiting;
+  assert.equal(completed,false);
+  assert.equal(recorded.datasetId,'school');
+  assert.equal(recorded.evidence.payload.proof.sum,12);
+  release();
+  assert.equal((await pending).status,'completed');
+  const broken=await fixture(undefined,async()=>{throw new Error('storage unavailable');});
+  broken.owner.approve('school',0);
+  const rejected=await broken.owner.agent.run({datasetId:'school',revision:0});
+  assert.equal(rejected.status,'denied'); assert.equal(Object.hasOwn(rejected,'sum'),false);
+});
+
+test('revocation while recording prevents the result from reaching the agent', async () => {
+  let release, arrived;
+  const waiting=new Promise(resolve=>{arrived=resolve;});
+  const f=await fixture(undefined,async()=>{arrived();await new Promise(resolve=>{release=resolve;});});
+  f.owner.approve('school',0);
+  const pending=f.owner.agent.run({datasetId:'school',revision:0});
+  await waiting; f.owner.invalidate(); release();
+  const result=await pending;
+  assert.equal(result.status,'denied'); assert.equal(Object.hasOwn(result,'sum'),false);
 });
 
 test('a forged result and a valid proof below the minimum never reach the agent', async () => {

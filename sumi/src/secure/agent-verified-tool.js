@@ -3,8 +3,8 @@ import { createVerifiedSumToolGateway } from './verified-tool-gateway.js';
 // Trusted owner controls the dataset allowlist and approves one invocation.
 // The agent only receives the narrow run method. This is an API boundary,
 // not isolation from code that can access the owner or the transport directly.
-export function createAgentVerifiedTool({ trust, recipient, datasets, transport, minimumCount = 3 }) {
-  if (!Array.isArray(datasets) || datasets.length < 1 || datasets.length > 50 || datasets.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(id)) || new Set(datasets).size !== datasets.length || typeof transport !== 'function' || !Number.isInteger(minimumCount) || minimumCount < 3 || minimumCount > 1000) throw new Error('ツール設定が不正です。');
+export function createAgentVerifiedTool({ trust, recipient, datasets, transport, minimumCount = 3, recordCandidate }) {
+  if (!Array.isArray(datasets) || datasets.length < 1 || datasets.length > 50 || datasets.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(id)) || new Set(datasets).size !== datasets.length || typeof transport !== 'function' || !Number.isInteger(minimumCount) || minimumCount < 3 || minimumCount > 1000 || (recordCandidate !== undefined && typeof recordCandidate !== 'function')) throw new Error('ツール設定が不正です。');
   const allowed = new Set(datasets);
   const verifier = createVerifiedSumToolGateway(trust, recipient);
   let revision = 0, approval = null;
@@ -19,11 +19,17 @@ export function createAgentVerifiedTool({ trust, recipient, datasets, transport,
       try {
         const call = await verifier.begin(datasetId);
         if (!current()) return denied('確認が変更されました。');
-        const response = await transport(call);
+        // The transport may retain and mutate its response. Keep the same
+        // snapshot for verification and the optional trusted audit sink.
+        const response = structuredClone(await transport(call));
         if (!current()) return denied('確認が変更されました。');
         const result = await verifier.accept(call.request.requestId, response);
         if (!current()) return denied('確認が変更されました。');
         if (result.count < minimumCount) return denied('公開に必要な件数を満たしていません。');
+        if (recordCandidate) {
+          await recordCandidate({ datasetId, request: structuredClone(call.request), evidence: structuredClone(response.evidence) });
+          if (!current()) return denied('確認が変更されました。');
+        }
         return Object.freeze({ status: 'completed', datasetId, sum: result.sum, count: result.count, verifiedSignatures: result.verifiedSignatures });
       } catch {
         return denied('ツール結果を検証できませんでした。');

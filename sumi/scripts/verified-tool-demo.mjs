@@ -40,6 +40,9 @@ try {
   }
   console.log('結果の改変と同一依頼の再利用を拒否。入力データの真実性や取得元は証明しません。');
   let sends = 0, capturedCall, capturedResponse;
+  const auditor = await makeSigningKey();
+  const auditTrust = { format: 'sumi-tool-audit-trust', version: 1, threshold: 1, publicKeys: [await crypto.subtle.exportKey('jwk', auditor.publicKey)] };
+  const auditLog = createVerifiedToolAuditLog(trust, auditTrust);
   const owner = createAgentVerifiedTool({ trust, recipient: 'local-agent-verifier', datasets: ['school', 'community'], transport: async call => {
     sends++;
     const response = await fetch(`http://127.0.0.1:${server.address().port}/sum`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(call), signal: AbortSignal.timeout(10000) });
@@ -47,6 +50,9 @@ try {
     capturedCall = call;
     capturedResponse = await response.json();
     return capturedResponse;
+  }, recordCandidate: async ({ datasetId, request, evidence }) => {
+    const record = await attestVerifiedToolResult(datasetId, request, evidence, trust, [auditor]);
+    await auditLog.append(datasetId, request, evidence, record);
   } });
   assert.equal((await owner.agent.run({ datasetId: 'school', revision: 0 })).status, 'denied');
   assert.equal(sends, 0);
@@ -56,22 +62,18 @@ try {
   assert.equal((await owner.agent.run({ datasetId: 'school', revision: 0 })).status, 'denied');
   assert.equal(sends, 1);
   console.log(`エージェント: 確認前は通信せず拒否。模擬承認後に ${result.count} 件の合計 ${result.sum} を検証し、承認の再利用を拒否。`);
-  const auditor = await makeSigningKey();
-  const auditTrust = { format: 'sumi-tool-audit-trust', version: 1, threshold: 1, publicKeys: [await crypto.subtle.exportKey('jwk', auditor.publicKey)] };
-  const record = await attestVerifiedToolResult('school', capturedCall.request, capturedResponse.evidence, trust, [auditor]);
+  const snapshot = auditLog.snapshot(), record = snapshot.entries[0].record;
   const checked = await verifyToolResultAttestation(record, 'school', capturedCall.request, capturedResponse.evidence, trust, auditTrust);
   assert.equal(checked.sum, result.sum);
   const forged = structuredClone(record); forged.payload.sum++;
   await assert.rejects(verifyToolResultAttestation(forged, 'school', capturedCall.request, capturedResponse.evidence, trust, auditTrust));
   console.log('署名付き結果記録と元の証明を独立した信頼鍵で検証し、記録の改変を拒否。');
-  const auditLog = createVerifiedToolAuditLog(trust, auditTrust);
-  const checkpoint = await auditLog.append('school', capturedCall.request, capturedResponse.evidence, record);
-  const snapshot = auditLog.snapshot();
+  const checkpoint = auditLog.checkpoint();
   const expectedRequests = new Map([[capturedCall.request.requestId, { datasetId: 'school', request: capturedCall.request }]]);
   await verifyToolAuditLog(snapshot, checkpoint, expectedRequests, trust, auditTrust);
   const truncated = structuredClone(snapshot); truncated.entries.pop();
   await assert.rejects(verifyToolAuditLog(truncated, checkpoint, expectedRequests, trust, auditTrust));
-  console.log('記録をハッシュで連結し、別に保持したチェックポイントで削除を検出。');
+  console.log('結果を返す前に記録をハッシュで連結し、別に保持したチェックポイントで削除を検出。');
 } finally {
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
