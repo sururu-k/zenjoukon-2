@@ -24,7 +24,8 @@
     "fhe:example": "node scripts/fhe-example-files.mjs",
     "fhe:verify": "node scripts/fhe-verify.mjs",
     "demo:fhe-key-backup": "node scripts/fhe-key-backup-demo.mjs",
-    "demo:fhe-two-party-backup": "node scripts/fhe-two-party-backup-demo.mjs"
+    "demo:fhe-two-party-backup": "node scripts/fhe-two-party-backup-demo.mjs",
+    "demo:fhe-three-party-backup": "node scripts/fhe-three-party-backup-demo.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",
