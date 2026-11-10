@@ -15,6 +15,6 @@ Leanのビルドは両方成功しました。Lean4SemanticBenchのレポート�
 
 ## 来歴と更新
 
-元ツールはユーザー提供の `Lean4SemanticBench-main.zip`（SHA-256 `c7fa58186b4f3999952eea9253965a9a3be5137dbc997d208c3a986f7b1dfc3c`）。同梱の[MITライセンス](LICENSE)を保持しています。各 `report.meta.json` は一時Lakeプロジェクトで生成したためGitコミットIDを持たず、対象の実ファイルのハッシュは [manifest.json](manifest.json) に別途記録しています。複製した２モジュールには同名の `main` があるため、同時ロードせず別々に解析しました。
+元ツールはユーザー提供の `Lean4SemanticBench-main.zip`（SHA-256 `c7fa58186b4f3999952eea9253965a9a3be5137dbc997d208c3a986f7b1dfc3c`）。解析器と操作スクリプトは [vendor/Lean4SemanticBench](../../vendor/Lean4SemanticBench/README.md) に同梱し、[MITライセンス](LICENSE)を保持しています。元ツールのGitHub Actions設定は同梱していません。各 `report.meta.json` は一時Lakeプロジェクトで生成したためGitコミットIDを持たず、対象の実ファイルのハッシュは [manifest.json](manifest.json) に別途記録しています。複製した２モジュールには同名の `main` があるため、同時ロードせず別々に解析しました。
 
-`node scripts/check-lean-visualization.mjs`（`sumi` ディレクトリで実行）は、元モデルと、レポート・埋め込みデータのハッシュに加え、対象16定理の原文と行番号が元ファイルと一致するか確認します。モデルが変わった場合はZIPのツールでそれぞれ再生成し、チェック結果とハッシュを更新してください。ハッシュは真正性の署名ではありません。
+`npm run build` は元モデルとレポートの整合性を確認してから、可視化を `dist/lean/` に配置します。`npm run dev` でも保証範囲画面から開けます。`node scripts/check-lean-visualization.mjs`（`sumi` ディレクトリで実行）は、元モデルと、レポート・埋め込みデータのハッシュに加え、対象16定理の原文と行番号が元ファイルと一致するか確認します。モデルが変わった場合は同梱ツールでそれぞれ再生成し、チェック結果とハッシュを更新してください。操作方法は[ツールの説明](../../vendor/Lean4SemanticBench/Commands/Scripts/README.md)を参照してください。ハッシュは真正性の署名ではありません。
