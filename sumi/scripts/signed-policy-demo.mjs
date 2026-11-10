@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import example from '../src/school-policy.example.json' with {type:'json'};
 import { makeSigningKey } from '../src/crypto.js';
 import { signSchoolPolicy, verifySchoolPolicy } from '../src/secure/signed-school-policy.js';
+import { prepareAgentDocument } from '../src/agent-document.js';
+import { attestAgentDecision, verifyAttestedAgentDecision } from '../src/secure/attested-agent-decision.js';
 
 const dir=await mkdtemp(join(tmpdir(),'sumi-sign-demo-'));
 try{
@@ -22,11 +24,20 @@ try{
   const ok=run();assert.equal(ok.status,0,ok.stderr);assert.doesNotMatch(ok.stdout,/青空祭/);
   const audit=()=>spawnSync(process.execPath,['scripts/school-audit.mjs','--signed-policy',policyFile,'--policy-trust',trustFile,'draft'],{cwd:root,encoding:'utf8'});
   const draft=audit();assert.equal(draft.status,0,draft.stderr);assert.equal(JSON.parse(draft.stdout).format,'sumi-configuration-draft');
+  const prepared=prepareAgentDocument('青空祭は来月開催します。','',(await verifySchoolPolicy(signed,trust)).policy);
+  const decision=await prepared.gateway.agent.execute({action:'read',resource:'approved-document',revision:prepared.gateway.revision});
+  assert.equal(decision.status,'denied');assert.equal(decision.receipt.result.decision,'allow');
+  const decisionTrust={...trust,format:'sumi-agent-decision-trust'};
+  const attested=await attestAgentDecision(decision.receipt,pairs);
+  assert.equal((await verifyAttestedAgentDecision(attested,decisionTrust)).verifiedSignatures,2);
+  assert.doesNotMatch(JSON.stringify(attested),/青空祭/);
   console.log('１．架空の学校設定に２つの鍵で署名し、別に用意した信頼鍵と必要数で検証。');
   console.log('２．同じ設定を点検案とエージェントの加工に使用。確認前は拒否、模擬確認後に加工版を表示。');
+  console.log('　　確認前の判定記録にも２鍵で署名・検証（ルール上は許可、実行は未確認で拒否）。');
   const changed=structuredClone(signed);changed.policy.documentProof.forbidden=['別の語'];await writeFile(policyFile,JSON.stringify(changed));
   const altered=run();assert.equal(altered.status,1);assert.doesNotMatch(altered.stdout,/エージェントに渡す文書/);
   assert.equal(audit().status,1);
   console.log('３．署名後に禁止語を差し替えると、文書を表示する前に拒否。');
+  console.log('署名はルール上の判定記録のみに対するもので、実行事実やログの完全性の証明ではありません。');
   console.log('鍵の所有者の本人確認、信頼設定の配布、失効、古い設定の再利用防止は含みません。架空データ専用。');
 }finally{await rm(dir,{recursive:true,force:true});}

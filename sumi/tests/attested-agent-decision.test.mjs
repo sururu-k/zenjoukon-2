@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { makeSigningKey } from '../src/crypto.js';
+import { createAgentGateway, createDecisionReceipt } from '../src/agent-guard.js';
+import { attestAgentDecision, verifyAttestedAgentDecision } from '../src/secure/attested-agent-decision.js';
+import { signSchoolPolicy } from '../src/secure/signed-school-policy.js';
+import example from '../src/school-policy.example.json' with {type:'json'};
+
+test('実際の判定記録を独立した信頼鍵で検証し、内容・署名・種別の差し替えを拒否する',async()=>{
+  const pairs=await Promise.all([makeSigningKey(),makeSigningKey()]);
+  const keys=await Promise.all(pairs.map(p=>crypto.subtle.exportKey('jwk',p.publicKey)));
+  const trust={format:'sumi-agent-decision-trust',version:1,threshold:2,publicKeys:keys};
+  const gateway=createAgentGateway('架空の連絡文。');
+  const proposal={action:'summarize',resource:'approved-document',revision:gateway.revision};
+  const result=await gateway.agent.execute(proposal);
+  assert.equal(result.status,'denied');assert.equal(result.receipt.result.decision,'allow');
+  const signed=await attestAgentDecision(result.receipt,pairs);
+  const verified=await verifyAttestedAgentDecision(signed,trust);
+  assert.equal(verified.verifiedSignatures,2);assert.deepEqual(verified.receipt,result.receipt);assert.ok(Object.isFrozen(verified.receipt.input));
+  assert.equal(JSON.stringify(signed).includes('架空の連絡文'),false);
+  const changed=structuredClone(signed);changed.receipt.input.action='send';
+  await assert.rejects(verifyAttestedAgentDecision(changed,trust));
+  const recomputed=structuredClone(signed);recomputed.receipt=await createDecisionReceipt({actor:'agent',action:'send',resource:'external-service'});
+  await assert.rejects(verifyAttestedAgentDecision(recomputed,trust));
+  const missing=structuredClone(signed);missing.signatures.pop();await assert.rejects(verifyAttestedAgentDecision(missing,trust));
+  const policy=await signSchoolPolicy(structuredClone(example),pairs);
+  const swapped=structuredClone(signed);swapped.signatures=policy.signatures;
+  await assert.rejects(verifyAttestedAgentDecision(swapped,trust));
+  const wrongTrust={...trust,format:'sumi-school-policy-trust'};await assert.rejects(verifyAttestedAgentDecision(signed,wrongTrust));
+});
