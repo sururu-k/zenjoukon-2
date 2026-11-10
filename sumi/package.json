@@ -22,7 +22,8 @@
     "demo:randomized-tool": "node scripts/randomized-tool-demo.mjs",
     "demo:fhe-attestation": "node scripts/fhe-attestation-demo.mjs",
     "fhe:example": "node scripts/fhe-example-files.mjs",
-    "fhe:verify": "node scripts/fhe-verify.mjs"
+    "fhe:verify": "node scripts/fhe-verify.mjs",
+    "demo:fhe-key-backup": "node scripts/fhe-key-backup-demo.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",

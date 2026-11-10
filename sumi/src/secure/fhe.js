@@ -1,5 +1,5 @@
 import SEAL from 'node-seal';
-import { hash } from '../crypto.js';
+import { hash, encryptDraft, decryptDraft } from '../crypto.js';
 import { minutes } from './numeric.js';
 let runtime;
 async function sealRuntime(){
@@ -14,14 +14,23 @@ function context(seal){
 function packet(p){if(p?.protocol!=='sumi-bfv-input-v1'||p.parameters!==PARAMETERS||typeof p.keyId!=='string'||!/^[a-f0-9]{64}$/.test(p.keyId)||typeof p.id!=='string'||!p.id||p.id.length>80||!Number.isInteger(p.count)||p.count<1||p.count>1000||typeof p.ciphertext!=='string'||p.ciphertext.length>500000)throw new Error('不正なBFV暗号文です。');}
 function encryptValues(seal,encoder,encryptor,keyId,input){const values=minutes(input),pt=new seal.Plaintext(),ct=new seal.Ciphertext();try{encoder.encode(BigUint64Array.from([BigInt(values.length),BigInt(values.reduce((a,b)=>a+b,0))]),pt);encryptor.encrypt(pt,ct);return {protocol:'sumi-bfv-input-v1',parameters:PARAMETERS,keyId,id:crypto.randomUUID(),count:values.length,ciphertext:ct.saveToBase64(seal.ComprModeType.none)};}finally{ct.delete();pt.delete();}}
 
-export async function createFHEOwner(){
-  const seal=await sealRuntime(),ctx=context(seal),keygen=new seal.KeyGenerator(ctx),publicKey=keygen.createPublicKey();
-  const secretKey=keygen.secretKey(),encoder=new seal.BatchEncoder(ctx),encryptor=new seal.Encryptor(ctx,publicKey),decryptor=new seal.Decryptor(ctx,secretKey),encodedPublicKey=publicKey.saveToBase64(seal.ComprModeType.none),keyId=await hash(encodedPublicKey);keygen.delete();
+function makeOwner(seal,ctx,publicKey,secretKey,encodedPublicKey,keyId){
+  let encoder,encryptor,decryptor;
+  try{encoder=new seal.BatchEncoder(ctx);encryptor=new seal.Encryptor(ctx,publicKey);decryptor=new seal.Decryptor(ctx,secretKey);}
+  catch(error){if(decryptor)decryptor.delete();if(encryptor)encryptor.delete();if(encoder)encoder.delete();throw error;}
   let closed=false;
   const current=()=>{if(closed)throw new Error('秘密鍵は破棄されています。');};
   return Object.freeze({
     keyId,
     exportPublicKey(){current();return Object.freeze({format:'sumi-bfv-public-key',version:1,parameters:PARAMETERS,keyId,publicKey:encodedPublicKey});},
+    async exportEncrypted(passphrase){
+      current();
+      // The serialized secret temporarily exists in JS memory; it is never
+      // returned in plaintext and cannot be reliably wiped by JavaScript.
+      const encodedSecretKey=secretKey.saveToBase64(seal.ComprModeType.none);
+      const envelope=await encryptDraft({format:'sumi-bfv-owner-key',version:1,parameters:PARAMETERS,keyId,publicKey:encodedPublicKey,secretKey:encodedSecretKey},passphrase);
+      current();return envelope;
+    },
     encrypt(input){current();return encryptValues(seal,encoder,encryptor,keyId,input);},
     decrypt(result){
       current();if(result?.protocol!=='sumi-bfv-total-v1'||result.parameters!==PARAMETERS||result.keyId!==keyId||!Number.isInteger(result.count)||result.count<1||result.count>1000||typeof result.ciphertext!=='string'||result.ciphertext.length>500000)throw new Error('この秘密鍵に対応する集計結果ではありません。');
@@ -31,6 +40,40 @@ export async function createFHEOwner(){
     },
     destroy(){if(!closed){closed=true;decryptor.delete();encryptor.delete();encoder.delete();secretKey.delete();publicKey.delete();ctx.delete();}}
   });
+}
+
+export async function createFHEOwner(){
+  const seal=await sealRuntime(),ctx=context(seal);let keygen,publicKey,secretKey;
+  try{
+    keygen=new seal.KeyGenerator(ctx);publicKey=keygen.createPublicKey();secretKey=keygen.secretKey();
+    const encodedPublicKey=publicKey.saveToBase64(seal.ComprModeType.none),keyId=await hash(encodedPublicKey);
+    return makeOwner(seal,ctx,publicKey,secretKey,encodedPublicKey,keyId);
+  }catch(error){if(secretKey)secretKey.delete();if(publicKey)publicKey.delete();ctx.delete();throw error;}
+  finally{if(keygen)keygen.delete();}
+}
+
+// Key ID must be received separately from a trusted source. Restoring a key
+// does not make chosen-ciphertext decryption safe; keep this demo offline.
+export async function restoreFHEOwner(inputEnvelope,passphrase,expectedKeyId){
+  const envelope=structuredClone(inputEnvelope);
+  if(typeof expectedKeyId!=='string'||!/^[a-f0-9]{64}$/.test(expectedKeyId))throw new Error('期待する鍵IDが不正です。');
+  const payload=await decryptDraft(envelope,passphrase);
+  if(!payload||typeof payload!=='object'||Array.isArray(payload)||Object.keys(payload).length!==6||!['format','version','parameters','keyId','publicKey','secretKey'].every(k=>Object.hasOwn(payload,k))||payload.format!=='sumi-bfv-owner-key'||payload.version!==1||payload.parameters!==PARAMETERS||payload.keyId!==expectedKeyId||typeof payload.publicKey!=='string'||payload.publicKey.length>500000||typeof payload.secretKey!=='string'||payload.secretKey.length>500000||await hash(payload.publicKey)!==expectedKeyId)throw new Error('暗号化されたBFV鍵または鍵IDが不正です。');
+  const seal=await sealRuntime(),ctx=context(seal),publicKey=new seal.PublicKey(),secretKey=new seal.SecretKey();let owner;
+  try{
+    publicKey.loadFromBase64(ctx,payload.publicKey);secretKey.loadFromBase64(ctx,payload.secretKey);
+    owner=makeOwner(seal,ctx,publicKey,secretKey,payload.publicKey,expectedKeyId);
+    // Functional check with fresh locally generated ciphertexts only; it is
+    // not a proof of key validity or of implementation security.
+    for(const value of crypto.getRandomValues(new Uint8Array(4))){
+      const n=value%181,p=owner.encrypt([n]),total={protocol:'sumi-bfv-total-v1',parameters:PARAMETERS,keyId:expectedKeyId,count:1,ciphertext:p.ciphertext};
+      if(owner.decrypt(total).sum!==n)throw new Error('鍵の組が一致しません。');
+    }
+    return owner;
+  }catch{
+    if(owner)owner.destroy();else{secretKey.delete();publicKey.delete();ctx.delete();}
+    throw new Error('暗号化されたBFV鍵を復元できません。');
+  }
 }
 
 // An input contributor uses only the exported public key. The expected key
