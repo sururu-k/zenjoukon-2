@@ -58,3 +58,39 @@ export async function verifySignedSum(input,expectedRequest,trust){
   const quorum=await verifyQuorum(signedBytes(envelope.payload),envelope.signatures,anchors);
   return Object.freeze({request:freeze(request),sum:proof.sum,count:proof.count,...quorum});
 }
+
+// An in-memory verifier boundary. It prevents concurrent and repeated use only
+// within this instance, not across restarts, devices, or other verifier nodes.
+export function createSumVerifierSession(trust){
+  const anchors=structuredClone(trust);validateTrust(anchors);
+  const requests=new Map();
+  return Object.freeze({
+    issue(purpose,recipient){
+      if(requests.size>=1000)throw new Error('この検証セッションの依頼数の上限に達しました。');
+      const request=validateRequest({format:REQUEST,version:1,purpose,requestId:crypto.randomUUID(),recipient});
+      if(requests.has(request.requestId))throw new Error('依頼IDが重複しました。');
+      requests.set(request.requestId,{request:freeze(request),status:'issued'});
+      return request;
+    },
+    cancel(requestId){
+      const entry=requests.get(requestId);
+      if(!entry||entry.status==='consumed'||entry.status==='cancelled')return false;
+      entry.status='cancelled';return true;
+    },
+    async verifyAndConsume(input,requestId){
+      const entry=requests.get(requestId);
+      if(!entry||entry.status!=='issued')throw new Error('依頼が存在しないか、使用済み・処理中・取消済みです。');
+      // Reserve synchronously before awaiting signature and proof checks.
+      entry.status='verifying';
+      try{
+        const verified=await verifySignedSum(input,entry.request,anchors);
+        if(entry.status!=='verifying')throw new Error('検証中に依頼が取り消されました。');
+        entry.status='consumed';
+        return verified;
+      }catch(error){
+        if(entry.status==='verifying')entry.status='issued';
+        throw error;
+      }
+    }
+  });
+}

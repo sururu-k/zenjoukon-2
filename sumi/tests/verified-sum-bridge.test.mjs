@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { canonical, makeSigningKey } from '../src/crypto.js';
 import { signQuorum } from '../src/secure/signature-quorum.js';
-import { createSignedSum, verifySignedSum } from '../src/secure/verified-sum-bridge.js';
+import { createSignedSum, verifySignedSum, createSumVerifierSession } from '../src/secure/verified-sum-bridge.js';
 
 const makeRequest=()=>({format:'sumi-sum-request',version:1,purpose:'架空データの合計',requestId:'case-0123456789abcdef',recipient:'検証者A'});
 async function fixture(){
@@ -44,4 +44,21 @@ test('署名処理中に呼出元が書き換えた依頼や入力を証明に�
   values[0]=100;request.recipient='書き換え';
   const signed=await pending,result=await verifySignedSum(signed,expected,trust);
   assert.equal(result.sum,8);await assert.rejects(verifySignedSum(signed,request,trust));
+});
+test('検証側が発行した依頼は同じセッションで一度だけ使え、並行実行や取消も拒否する',async()=>{
+  const {keys,trust}=await fixture(),session=createSumVerifierSession(trust);
+  const request=session.issue('架空の合計','検証者A');
+  const signed=await createSignedSum([3,5],request,keys.slice(0,2));
+  const tampered=structuredClone(signed);tampered.payload.proof.sum=9;
+  await assert.rejects(session.verifyAndConsume(tampered,request.requestId));
+  const outcomes=await Promise.allSettled([session.verifyAndConsume(signed,request.requestId),session.verifyAndConsume(signed,request.requestId)]);
+  assert.equal(outcomes.filter(x=>x.status==='fulfilled').length,1);
+  assert.equal(outcomes.filter(x=>x.status==='rejected').length,1);
+  await assert.rejects(session.verifyAndConsume(signed,request.requestId));
+  const other=session.issue('別の依頼','検証者A');
+  const next=await createSignedSum([2],other,keys.slice(0,2));
+  const pending=session.verifyAndConsume(next,other.requestId);
+  assert.equal(session.cancel(other.requestId),true);
+  await assert.rejects(pending);await assert.rejects(session.verifyAndConsume(next,other.requestId));
+  assert.equal(session.cancel(request.requestId),false);
 });
