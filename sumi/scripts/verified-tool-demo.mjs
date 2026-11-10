@@ -5,6 +5,7 @@ import { createSignedSum } from '../src/secure/verified-sum-bridge.js';
 import { createVerifiedSumToolGateway } from '../src/secure/verified-tool-gateway.js';
 import { createAgentVerifiedTool } from '../src/secure/agent-verified-tool.js';
 import { attestVerifiedToolResult, verifyToolResultAttestation } from '../src/secure/tool-result-attestation.js';
+import { createVerifiedToolAuditLog, verifyToolAuditLog } from '../src/secure/verified-tool-audit-log.js';
 
 // Fictional local tool. The independent verifier chooses its trust keys and
 // request; the HTTP server is not trusted merely because it returned a sum.
@@ -63,6 +64,14 @@ try {
   const forged = structuredClone(record); forged.payload.sum++;
   await assert.rejects(verifyToolResultAttestation(forged, 'school', capturedCall.request, capturedResponse.evidence, trust, auditTrust));
   console.log('署名付き結果記録と元の証明を独立した信頼鍵で検証し、記録の改変を拒否。');
+  const auditLog = createVerifiedToolAuditLog(trust, auditTrust);
+  const checkpoint = await auditLog.append('school', capturedCall.request, capturedResponse.evidence, record);
+  const snapshot = auditLog.snapshot();
+  const expectedRequests = new Map([[capturedCall.request.requestId, { datasetId: 'school', request: capturedCall.request }]]);
+  await verifyToolAuditLog(snapshot, checkpoint, expectedRequests, trust, auditTrust);
+  const truncated = structuredClone(snapshot); truncated.entries.pop();
+  await assert.rejects(verifyToolAuditLog(truncated, checkpoint, expectedRequests, trust, auditTrust));
+  console.log('記録をハッシュで連結し、別に保持したチェックポイントで削除を検出。');
 } finally {
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
