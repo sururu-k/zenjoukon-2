@@ -43,7 +43,7 @@ test('実際のBFV暗号文を秘密鍵なしで加算し、元の鍵で合計�
   const owner=await createFHEOwner(),other=await createFHEOwner();
   try{
     const a=owner.encrypt([30,90]),b=owner.encrypt([60,180]),total=await evaluateCiphertexts([a,b]);
-    const r=owner.decrypt(total);assert.equal(r.sum,360);assert.equal(r.count,4);assert.equal(r.mean,90);assert.ok(r.noiseBudgetBits>0);assert.ok(!('secretKey' in a));assert.notEqual(a.ciphertext,owner.encrypt([30,90]).ciphertext);
+    const r=owner.decrypt(total);assert.equal(r.sum,360);assert.equal(r.count,4);assert.equal(r.mean,90);assert.equal(Object.hasOwn(r,'noiseBudgetBits'),false);assert.ok(!('secretKey' in a));assert.notEqual(a.ciphertext,owner.encrypt([30,90]).ciphertext);
     assert.throws(()=>other.decrypt(total));await assert.rejects(evaluateCiphertexts([a,a]));await assert.rejects(evaluateCiphertexts([a,other.encrypt([10])]));await assert.rejects(evaluateCiphertexts([{...a,ciphertext:'invalid'}]));
     const edge=owner.decrypt(await evaluateCiphertexts([owner.encrypt(Array(1000).fill(180))]));assert.equal(edge.sum,180000);
   }finally{owner.destroy();other.destroy();}

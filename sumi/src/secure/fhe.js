@@ -25,7 +25,9 @@ export async function createFHEOwner(){
     encrypt(input){current();return encryptValues(seal,encoder,encryptor,keyId,input);},
     decrypt(result){
       current();if(result?.protocol!=='sumi-bfv-total-v1'||result.parameters!==PARAMETERS||result.keyId!==keyId||!Number.isInteger(result.count)||result.count<1||result.count>1000||typeof result.ciphertext!=='string'||result.ciphertext.length>500000)throw new Error('この秘密鍵に対応する集計結果ではありません。');
-      const ct=new seal.Ciphertext(),pt=new seal.Plaintext();try{ct.loadFromBase64(ctx,result.ciphertext);const budget=decryptor.invariantNoiseBudget(ct);if(budget<=0)throw new Error('暗号文のノイズ予算を使い切っています。');decryptor.decrypt(ct,pt);const decoded=encoder.decodeBigUint64(pt),count=Number(decoded[0]),sum=Number(decoded[1]);if(count!==result.count||sum<0||sum>180*count)throw new Error('集計結果が範囲外です。');return {count,sum,mean:sum/count,noiseBudgetBits:budget};}finally{ct.delete();pt.delete();}
+      // Do not compute or expose secret-key-dependent noise budgets. SEAL
+      // warns they can leak the key on attacker-controlled ciphertexts.
+      const ct=new seal.Ciphertext(),pt=new seal.Plaintext();try{ct.loadFromBase64(ctx,result.ciphertext);decryptor.decrypt(ct,pt);const decoded=encoder.decodeBigUint64(pt),count=Number(decoded[0]),sum=Number(decoded[1]);if(count!==result.count||sum<0||sum>180*count)throw new Error('集計結果が範囲外です。');return {count,sum,mean:sum/count};}finally{ct.delete();pt.delete();}
     },
     destroy(){if(!closed){closed=true;decryptor.delete();encryptor.delete();encoder.delete();secretKey.delete();publicKey.delete();ctx.delete();}}
   });
