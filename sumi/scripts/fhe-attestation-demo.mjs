@@ -4,6 +4,10 @@ import { createFHEOwner, createFHEEncryptor } from '../src/secure/fhe.js';
 import { createFheRoundVerifierSession } from '../src/secure/verified-fhe-round.js';
 import { signFheContribution, verifyFheContributions } from '../src/secure/signed-fhe-contributions.js';
 import { createContributorFheGate } from '../src/secure/contributor-fhe-gate.js';
+import { initializeFheReplayLedger, openFheReplayLedger } from './durable-fhe-verifier.mjs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const owner=await createFHEOwner();
 try {
@@ -31,7 +35,18 @@ try {
     await assert.rejects(session.verifyAndConsume({contributions:bundles,attestation:modified}));
     const result=await session.verifyAndConsume({contributions:bundles,attestation:envelope});
     await assert.rejects(session.verifyAndConsume({contributions:bundles,attestation:envelope}));
+    const directory=await mkdtemp(join(tmpdir(),'sumi-fhe-replay-demo-'));
+    try {
+      const path=join(directory,'ledger.sqlite'),{ledgerId}=await initializeFheReplayLedger(path);
+      const first=await openFheReplayLedger(path,ledgerId);
+      await first.verifyAndConsume({contributions:bundles,attestation:envelope},round,request,roster,trust);
+      first.close();
+      const reopened=await openFheReplayLedger(path,ledgerId);
+      try {await assert.rejects(reopened.verifyAndConsume({contributions:bundles,attestation:envelope},round,request,roster,trust));}
+      finally {reopened.close();}
+    } finally {await rm(directory,{recursive:true,force:true});}
     console.log(`${dataset}: ${checked.participants} 件の入力署名、BFV 暗号文の再加算、合計 ${result.sum} に対する ${result.verifiedSignatures} 件の署名を検証。`);
   }
+  console.log('同じ SQLite 台帳を再度開いても集計回の再利用を拒否。古い台帳への復元や別台帳では防げません。');
   console.log('事前に確認した入力と受取先だけを一度復号。各入力者は公開鍵だけで暗号化します（同一プロセスの模擬）。復号値の正しさは署名者を信頼します。');
 } finally {owner.destroy();}
