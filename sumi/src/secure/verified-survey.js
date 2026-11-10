@@ -87,6 +87,17 @@ async function verifyTotal(total){
   return commit(decode(total.share),decode(total.blind)).equals(sum);
 }
 
+// Verify one published aggregate without requiring the other collector's
+// secret share. This checks consistency with its public commitments, not
+// submitter identity, completeness, or whether collectors are independent.
+export async function verifyVerifiedSurveyTotal(input){
+  try{
+    const total=structuredClone(input);
+    if(total?.protocol!=='sumi-verified-total-v2'||!['A','B'].includes(total.party)||!validId(total.campaign)||!Number.isInteger(total.count)||total.count<3||total.count>100||typeof total.digest!=='string'||!/^[a-f0-9]{64}$/.test(total.digest))return false;
+    return await verifyTotal(total);
+  }catch{return false;}
+}
+
 export async function combineVerifiedSurveyTotals(inputA,inputB){
   const a=structuredClone(inputA),b=structuredClone(inputB);
   if(a?.protocol!=='sumi-verified-total-v2'||b?.protocol!==a.protocol||a.party!=='A'||b.party!=='B'||!validId(a.campaign)||a.campaign!==b.campaign||!Number.isInteger(a.count)||a.count<3||a.count>100||a.count!==b.count||typeof a.digest!=='string'||!/^[a-f0-9]{64}$/.test(a.digest)||a.digest!==b.digest)throw new Error('集計結果が対応していません。');

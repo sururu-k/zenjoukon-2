@@ -8,6 +8,8 @@ Node.js と、このリポジトリの依存パッケージが必要です。`su
 
 `npm run demo:bridge` は、一般向けと学校向けの架空データで、合計のゼロ知識証明と２鍵の署名を組み合わせます。検証者が発行した用途・依頼ID・受取先と別途指定した信頼鍵を使い、合計の改変、別の受取先への差し替え、同一セッション内の再送を拒否します。署名者の身元、入力の真実性、各値の範囲は証明しません。再送拒否はメモリ内に限り、再起動や別端末をまたぐ管理はありません。
 
+`npm run demo:survey-bridge` は、二択回答の ZK 証明と２担当者の秘密分散集計に、それぞれ別鍵の ECDSA 署名を接続する実験です。一般向けと学校向けの架空例をローカル HTTP で試します。同一プロセス内の模擬のため、実回答の秘密や担当者の独立性は保証しません。署名鍵と集計IDは検証側が別に信頼する必要があり、提出の網羅性・一人一票・集計結果の差分からの推測防止は含みません。
+
 ```sh
 node scripts/sumi.mjs write examples/write.json /tmp/sumi-write.json
 node scripts/sumi.mjs gate examples/gate.txt /tmp/sumi-gate.json

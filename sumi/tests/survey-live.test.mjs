@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { startCollector } from '../survey-live/server.mjs';
 import { splitContribution } from '../src/secure/mpc.js';
 import { createVerifiedSurveyBallot, combineVerifiedSurveyTotals } from '../src/secure/verified-survey.js';
+import { makeSigningKey } from '../src/crypto.js';
+import { combineSignedSurveyTotals } from '../src/secure/signed-survey-totals.js';
 
 const call = async (server, path, body) => {
   const response = await fetch(`http://127.0.0.1:${server.address().port}${path}`, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -40,4 +42,36 @@ test('3件未満の集計、他担当宛てのシェア、重複した提出は�
     assert.equal((await call(A, '/publish', {})).status, 400, '3件未満');
     assert.equal((await call(A, '/nothing')).status, 404);
   } finally { A.close(); }
+});
+
+test('実HTTPの各担当が集計へ署名し、別途指定した信頼鍵と回答証明を検証する', async () => {
+  const [keyA,keyB]=await Promise.all([makeSigningKey(),makeSigningKey()]);
+  const trust={format:'sumi-survey-collector-trust',version:1,
+    A:{threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',keyA.publicKey)]},
+    B:{threshold:1,publicKeys:[await crypto.subtle.exportKey('jwk',keyB.publicKey)]}};
+  const mutableKeyA={publicKey:keyA.publicKey,privateKey:keyA.privateKey};
+  const A=await startCollector('A',0,{signingKeys:[mutableKeyA]}),B=await startCollector('B',0,{signingKeys:[keyB]});
+  try{
+    // The already-started collector must not change signer if its caller
+    // later mutates the original configuration object.
+    mutableKeyA.publicKey=keyB.publicKey;mutableKeyA.privateKey=keyB.privateKey;
+    for(const answer of [true,false,true]){
+      const ballot=await createVerifiedSurveyBallot(answer,'sumi-survey-live');
+      assert.equal((await call(A,'/share',ballot.A)).status,200);
+      assert.equal((await call(B,'/share',ballot.B)).status,200);
+    }
+    const [a,again,b]=await Promise.all([call(A,'/publish',{}),call(A,'/publish',{}),call(B,'/publish',{})]);
+    assert.equal(a.status,200);assert.equal(again.status,200);assert.deepEqual(a.body,again.body);
+    assert.deepEqual(await combineSignedSurveyTotals(a.body,b.body,'sumi-survey-live',trust),{count:3,yes:2,no:1,campaign:'sumi-survey-live',verifiedA:1,verifiedB:1});
+    const changed=structuredClone(a.body);changed.payload.total.share='0'.repeat(64);
+    await assert.rejects(combineSignedSurveyTotals(changed,b.body,'sumi-survey-live',trust));
+    const wrong=structuredClone(trust);wrong.A.publicKeys=wrong.B.publicKeys;
+    await assert.rejects(combineSignedSurveyTotals(a.body,b.body,'sumi-survey-live',wrong));
+  }finally{A.close();B.close();}
+});
+
+test('一致しない署名鍵を設定した担当は回答の受付前に起動を拒否する',async()=>{
+  const [a,b]=await Promise.all([makeSigningKey(),makeSigningKey()]);
+  await assert.rejects(startCollector('A',0,{signingKeys:[{publicKey:a.publicKey,privateKey:b.privateKey}]}));
+  await assert.rejects(startCollector('A',0,{signingKeys:[]}));
 });

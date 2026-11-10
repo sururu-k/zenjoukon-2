@@ -8,6 +8,8 @@ import { resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { createVerifiedSurveyCollector } from '../src/secure/verified-survey.js';
+import { signSurveyTotal } from '../src/secure/signed-survey-totals.js';
+import { signQuorum, verifyQuorum } from '../src/secure/signature-quorum.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const PORTS = { web: Number(process.env.LIVE_WEB_PORT || 4190), A: Number(process.env.LIVE_A_PORT || 4191), B: Number(process.env.LIVE_B_PORT || 4192) };
@@ -25,8 +27,21 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-export function startCollector(party, port) {
-  const collector = createVerifiedSurveyCollector(party, CAMPAIGN);
+export async function startCollector(party, port, options = {}) {
+  const collector = createVerifiedSurveyCollector(party, options.campaign ?? CAMPAIGN);
+  // Keep the key handles chosen at startup even if the caller later mutates
+  // its configuration objects. The CryptoKey handles themselves are opaque.
+  const signingKeys=options.signingKeys===undefined?null:[...options.signingKeys].map(pair=>Object.freeze({publicKey:pair.publicKey,privateKey:pair.privateKey}));
+  if(signingKeys){
+    // Fail before accepting any ballots if signing is not actually usable or
+    // a public key does not correspond to its private key. These keys do not
+    // authenticate a person; the verifier still pins its own trust anchors.
+    const challenge=new TextEncoder().encode('sumi/survey-collector-key-check/v1');
+    const publicKeys=await Promise.all(signingKeys.map(pair=>crypto.subtle.exportKey('jwk',pair.publicKey)));
+    const signatures=await signQuorum(challenge,signingKeys);
+    await verifyQuorum(challenge,signatures,{threshold:signingKeys.length,publicKeys});
+  }
+  let pendingTotal=null,signedTotal=null,publishTask=null;
   let held = []; // この担当が実際に保管しているもの。乱数にしか見えないことを画面で示すために公開する。
   const server = createServer(async (req, res) => {
     try {
@@ -41,7 +56,18 @@ export function startCollector(party, port) {
       if (req.method === 'GET' && path === '/status') return json(res, 200, { party, count: collector.count, phase: collector.phase });
       if (req.method === 'GET' && path === '/held') return json(res, 200, { party, held });
       if (req.method === 'POST' && path === '/publish') {
-        const total = await collector.publish();
+        let total;
+        if(!signingKeys)total=await collector.publish();
+        else {
+          // Publication cannot be undone. Keep the aggregate if signing fails,
+          // so an explicit retry does not lose votes or open a second set.
+          if(!publishTask&&!signedTotal)publishTask=(async()=>{
+            if(!pendingTotal)pendingTotal=await collector.publish();
+            signedTotal=await signSurveyTotal(pendingTotal,signingKeys);
+            return signedTotal;
+          })().finally(()=>{publishTask=null;});
+          total=signedTotal||await publishTask;
+        }
         held = held.map((h) => ({ batch: h.batch, share: h.share })); // 確定後も記録は残す（共謀デモ用）
         return json(res, 200, total);
       }
