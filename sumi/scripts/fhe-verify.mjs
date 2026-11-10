@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { open } from 'node:fs/promises';
 import { initializeFheReplayLedger, openFheReplayLedger } from './durable-fhe-verifier.mjs';
+import { verifyFheVerificationContext } from '../src/secure/signed-fhe-context.js';
 
-const usage='使い方: node scripts/fhe-verify.mjs init <台帳.sqlite> | verify <結果.json> <期待条件.json> <台帳.sqlite> <台帳ID>';
+const usage='使い方: node scripts/fhe-verify.mjs init <台帳.sqlite> | verify <結果.json> <期待条件.json> <台帳.sqlite> <台帳ID> | verify-signed <結果.json> <署名付き条件.json> <管理鍵.json> <期待ハッシュ> <台帳.sqlite> <台帳ID>';
 const own=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 async function readJson(path,limit){
   const file=await open(path,'r');
@@ -20,14 +21,16 @@ async function main(args){
     console.log(JSON.stringify({format:'sumi-fhe-ledger-id',version:1,ledgerId:created.ledgerId}));
     return;
   }
-  if(args.length!==5||args[0]!=='verify')throw new Error(usage);
-  const [,resultPath,contextPath,ledgerPath,ledgerId]=args;
-  const result=await readJson(resultPath,32*1024*1024),context=await readJson(contextPath,1024*1024);
+  if(!((args.length===5&&args[0]==='verify')||(args.length===7&&args[0]==='verify-signed')))throw new Error(usage);
+  const signed=args[0]==='verify-signed', resultPath=args[1], contextPath=args[2], ledgerPath=args[signed?5:3], ledgerId=args[signed?6:4];
+  const result=await readJson(resultPath,32*1024*1024),inputContext=await readJson(contextPath,1024*1024);
+  let context=inputContext,contextSignatures;
+  if(signed){const checked=await verifyFheVerificationContext(inputContext,args[4],await readJson(args[3],1024*1024));context=checked.context;contextSignatures=checked.verifiedSignatures;}
   if(!own(context,['format','version','round','request','participants','decryptorTrust'])||context.format!=='sumi-fhe-verification-context'||context.version!==1)throw new Error('期待条件の形式が不正です。');
   const ledger=await openFheReplayLedger(ledgerPath,ledgerId);
   try {
     const verified=await ledger.verifyAndConsume(result,context.round,context.request,context.participants,context.decryptorTrust);
-    console.log(JSON.stringify({status:'verified',...verified}));
+    console.log(JSON.stringify({status:'verified',...verified,...(signed?{contextSignatures}:{})}));
   } finally {ledger.close();}
 }
 main(process.argv.slice(2)).catch(error=>{process.stderr.write(`${error.message||'検証に失敗しました。'}\n`);process.exitCode=1;});

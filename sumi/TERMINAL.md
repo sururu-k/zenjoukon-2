@@ -72,3 +72,11 @@ npm run fhe:verify -- verify /tmp/sumi-fhe-example/result.json /tmp/sumi-fhe-exa
 
 `result.json` は入力署名と集計結果、`expected.json` は期待する集計回・依頼・参加者の公開鍵・復号者の信頼鍵です。実際の利用では期待条件を結果の提供者とは別の信頼できる経路で入手してください。サンプルでは両方を同じ作成者が作るため、信頼の独立性はありません。検証成功後は台帳に使用済みとして記録し、同じ台帳では再提出を拒否します。登録後に出力が失敗しても自動で再受付はされません。古い台帳への差し戻しや別台帳を使った再提出、復号者が署名した平文の真実性は防げません。
 
+管理者が署名した期待条件を使う場合は、`verify-signed` を使用します。サンプルの `signed-expected.json` と `authority.json` は署名付き条件と管理鍵、`context-hash.json` は条件ハッシュです。次の `<条件ハッシュ>` と `<台帳ID>` はそれぞれの値に置き換えます。
+
+```sh
+npm run fhe:verify -- verify-signed /tmp/sumi-fhe-example/result.json /tmp/sumi-fhe-example/signed-expected.json /tmp/sumi-fhe-example/authority.json <条件ハッシュ> /tmp/sumi-fhe-ledger.sqlite <台帳ID>
+```
+
+同じ集計回を上の `verify` で既に受け付けた場合、このコマンドも同じ台帳では拒否されます。実利用では管理鍵と期待ハッシュを署名付き条件とは別の信頼できる経路で入手し、鍵の所有者・失効と期待ハッシュの更新を管理してください。サンプルはすべて一人の生成者による架空データです。
+
